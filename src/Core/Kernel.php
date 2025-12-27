@@ -14,6 +14,7 @@ use Handlr\Session\Session;
 
 final class Kernel
 {
+    private static ?Kernel $instance = null;
     private string $appRoot;
     private Container $container;
     private Router $router {
@@ -22,18 +23,29 @@ final class Kernel
         }
     }
 
-    public function __construct(string $appRoot) // NOSONAR
+    private function __construct() {}
+
+    public function initialize(Container $container, Router $router, string $appRoot): void
     {
+        $this->container = $container;
+        $this->router = $router;
         $this->appRoot = $appRoot;
-        $this->container = new Container();
-        $this->router = new Router($this->container);
 
         $this->loadBootstrap();
-
         $this->registerServices();
         $this->registerGlobalHandlers();
 
         $this->loadRoutes();
+    }
+
+    public static function getInstance(Container $container, Router $router, string $appRoot): Kernel
+    {
+        if (self::$instance === null) {
+            self::$instance = new self();
+            self::$instance->initialize($container, $router, $appRoot);
+        }
+
+        return self::$instance;
     }
 
     private function registerServices(): void
@@ -83,10 +95,5 @@ final class Kernel
     {
         $router = $this->router; // NOSONAR
         require_once $this->appRoot . '/app/routes.php'; // NOSONAR
-    }
-
-    public function getRouter(): Router
-    {
-        return $this->router;
     }
 }

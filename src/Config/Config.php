@@ -4,19 +4,23 @@ declare(strict_types=1);
 
 namespace Handlr\Config;
 
-class Config
-{
-    protected static array $config = [];
+use Adbar\Dot;
 
-    public static function load(array $config): void
+final class Config
+{
+    private array $config = [];
+
+    private function __construct(private Dot $dot) {}
+
+    public function load(array $config): void
     {
-        self::$config = $config;
+        $this->dot($config);
     }
 
-    public static function get(string $key, $default = null)
+    public function get(string $key, $default = null)
     {
         $keys = explode('.', $key);
-        $value = self::$config;
+        $value = $this->config;
 
         foreach ($keys as $keyPart) {
             if (isset($value[$keyPart])) {

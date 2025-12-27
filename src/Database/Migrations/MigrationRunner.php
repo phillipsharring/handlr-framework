@@ -8,6 +8,7 @@ use Handlr\Database\Db;
 
 // NOSONAR
 use PDO;
+use RuntimeException;
 
 class MigrationRunner
 {
@@ -141,10 +142,29 @@ class MigrationRunner
         );
     }
 
+    private function classNameFromFile(string $file): string
+    {
+        // "20251227121500_create_users_table.php" -> "M20251227121500_CreateUsersTable"
+        $base = basename($file, '.php'); // 20251227121500_create_users_table
+        [$stamp, $rest] = [substr($base, 0, 14), substr($base, 15)];
+        $studly = str_replace(' ', '', ucwords(str_replace('_', ' ', $rest)));
+        return "M{$stamp}_{$studly}";
+    }
+
     private function loadMigration(string $file): string
     {
-        require_once "$this->migrationPath/$file"; // NOSONAR
-        return 'Migrations\\' . explode('_', pathinfo($file, PATHINFO_FILENAME))[1];
+        require_once rtrim($this->migrationPath, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $file;
+
+        // Build class name
+        $class = $this->classNameFromFile($file);
+
+        // Basic guard
+        if (!class_exists($class)) {
+            throw new RuntimeException("Migration class {$class} not found in {$file}");
+        }
+
+        // Return the class name (runner will instantiate it with $this->db)
+        return $class;
     }
 
     private function recordMigration(int $nextBatch, string $file): void

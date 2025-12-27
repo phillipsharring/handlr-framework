@@ -10,7 +10,7 @@ class Router
 {
     private array $globalHandlers = [];
     private array $routes = [];
-    public function __construct(private Container $container) {}
+    public function __construct(private readonly Container $container) {}
 
     public function addGlobalHandler(Handler $handler): void
     {
