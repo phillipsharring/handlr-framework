@@ -13,19 +13,22 @@ class Db
     private PDO $connection;
     private ?PDOStatement $lastStatement = null;
 
-    public function __construct()
+    public function __construct(private readonly Config $config)
     {
-        $dsn = Config::get('database.dsn');
-        $user = Config::get('database.user');
-        $password = Config::get('database.password');
-        $options = Config::get('database.options', []);
+        $dbConfig = $this->config->get('database', []);
+        [
+            'dsn' => $dsn,
+            'user' => $user,
+            'password' => $password,
+            'options' => $options,
+        ] = $dbConfig + ['options' => []]; // default options if missing
 
         $this->connection = new PDO($dsn, $user, $password, $options);
     }
 
     public function getDatabaseName(): string
     {
-        $dsn = Config::get('database.dsn');
+        $dsn = $this->config->get('database.dsn');
         preg_match('/dbname=([^;]+)/', $dsn, $matches);
         return $matches[1] ?? '';
     }
