@@ -5,24 +5,30 @@ declare(strict_types=1);
 namespace Handlr\Config;
 
 use Dotenv\Dotenv;
-use Handlr\Core\Kernel;
+use Handlr\Core\Container\Container;
 
 class Loader
 {
-    public static function load(string $configPath): void
+    public static function load(string $configPath, ?Container $container = null): Config
     {
         $dotenv = Dotenv::createImmutable(dirname($configPath) . '/../');
         $dotenv->load();
 
-        $container = Kernel::getContainer();
-
         // Load configuration file
         $configData = require $configPath; // NOSONAR
 
-        $config = $container->get(Config::class);
+        $config = $container
+            ? $container->get(Config::class)
+            : new Config(new \Adbar\Dot());
 
         // Pass the loaded config to the Config class
         $config->load($configData);
-        $container->set(Config::class, static fn() => $config);
+
+        if ($container) {
+            // Bind the instance as a singleton for the rest of the app lifecycle.
+            $container->bind(Config::class, $config);
+        }
+
+        return $config;
     }
 }

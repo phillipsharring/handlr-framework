@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Handlr\Core;
 
+use Handlr\Core\Container\Container;
 use Handlr\Database\Db;
 use Handlr\Handlers\ErrorHandler;
 use Handlr\Handlers\LogHandler;
@@ -17,11 +18,7 @@ final class Kernel
     private static ?Kernel $instance = null;
     private string $appRoot;
     private Container $container;
-    private Router $router {
-        get {
-            return $this->router;
-        }
-    }
+    private Router $router;
 
     private function __construct() {}
 
@@ -57,6 +54,11 @@ final class Kernel
         return self::$instance->container;
     }
 
+    public function getRouter(): Router
+    {
+        return $this->router;
+    }
+
     private function registerServices(): void
     {
         $this->registerLogger();
@@ -67,23 +69,20 @@ final class Kernel
     private function registerLogger(): void
     {
         $logFile = $this->appRoot . '/logs/app.log';
-        $this->container->set(LogHandler::class, static function () use ($logFile) {
-            $logger = new Log();
-            $logger::setLogger(new Psr3Logger($logFile));
-            return new LogHandler($logger);
-        });
+        $logger = new Log();
+        $logger::setLogger(new Psr3Logger($logFile));
+        $this->container->singleton(LogHandler::class, new LogHandler($logger));
     }
 
     private function registerDatabase(): void
     {
-        $this->container->set(Db::class, static function () {
-            return new Db();
-        });
+        // Resolve lazily; the container can construct it when first requested.
+        $this->container->bind(Db::class, Db::class);
     }
 
     private function registerSession(): void
     {
-        $db = $this->container->get(Db::class);
+        $db = $this->container->singleton(Db::class);
         $sessionHandler = new DatabaseSessionDriver($db);
         Session::useHandler($sessionHandler);
     }
