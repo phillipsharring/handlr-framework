@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../bootstrap.php';
 
+use Handlr\Config\Loader;
+use Handlr\Core\Container\Container;
 use Handlr\Database\Db;
 use Handlr\Database\Migrations\MigrationRunner;
 
@@ -40,8 +42,17 @@ if (
 //     echo "\n";
 // }
 
-$db = new Db();
-$migrationPath = constant('HANDLR_APP_ROOT') . '/migrations';
+$container = new Container();
+
+// Prefer app-defined constants (set by the app's bootstrap.php). Fall back to cwd for framework dev usage.
+$configPath = defined('HANDLR_APP_APP_PATH')
+    ? HANDLR_APP_APP_PATH . '/config.php'
+    : (getcwd() . '/app/config.php');
+
+$config = Loader::load($configPath, $container);
+$db = new Db($config);
+
+$migrationPath = (defined('HANDLR_APP_ROOT') ? HANDLR_APP_ROOT : getcwd()) . '/migrations';
 $runner = new MigrationRunner($db, $migrationPath);
 
 switch ($action) {
