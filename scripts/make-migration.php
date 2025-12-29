@@ -21,7 +21,7 @@ if (!is_dir(dirname($path))) {
 
 // Build class name
 $studly = str_replace(' ', '', ucwords(str_replace('_', ' ', strtolower($name))));
-$class  = "{$stamp}_{$studly}";
+$class  = "Migration_{$stamp}_{$studly}";
 
 // Migration stub (SQL left empty for you to fill)
 $stub = <<<PHP
