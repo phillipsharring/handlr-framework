@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Handlr\Validation;
 
-use Handlr\Core\Container;
+use Handlr\Core\Container\Container;
 use Handlr\Validation\Rules\BaseRule;
 use Handlr\Validation\Rules\RuleValidator;
 use Handlr\Validation\Sanitizers\Sanitizer;

@@ -48,6 +48,15 @@ final class Kernel
         return self::$instance;
     }
 
+    public static function getContainer(): Container
+    {
+        if (self::$instance === null) {
+            throw new \RuntimeException('Kernel has not been initialized yet.');
+        }
+
+        return self::$instance->container;
+    }
+
     private function registerServices(): void
     {
         $this->registerLogger();

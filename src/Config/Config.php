@@ -8,28 +8,16 @@ use Adbar\Dot;
 
 final class Config
 {
-    private array $config = [];
-
-    private function __construct(private Dot $dot) {}
+    public function __construct(public Dot $dot) {}
 
     public function load(array $config): void
     {
-        $this->dot($config);
+        // Replace the entire config payload.
+        $this->dot->setArray($config);
     }
 
     public function get(string $key, $default = null)
     {
-        $keys = explode('.', $key);
-        $value = $this->config;
-
-        foreach ($keys as $keyPart) {
-            if (isset($value[$keyPart])) {
-                $value = $value[$keyPart];
-            } else {
-                return $default;
-            }
-        }
-
-        return $value;
+        return $this->dot->get($key, $default);
     }
 }

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Handlr\Config;
 
 use Dotenv\Dotenv;
-use Handlr\Core\Container;
+use Handlr\Core\Kernel;
 
 class Loader
 {
@@ -14,7 +14,7 @@ class Loader
         $dotenv = Dotenv::createImmutable(dirname($configPath) . '/../');
         $dotenv->load();
 
-        $container = new Container();
+        $container = Kernel::getContainer();
 
         // Load configuration file
         $configData = require $configPath; // NOSONAR
@@ -23,6 +23,6 @@ class Loader
 
         // Pass the loaded config to the Config class
         $config->load($configData);
-        $container->set(Config::class, fn() => $config);
+        $container->set(Config::class, static fn() => $config);
     }
 }
