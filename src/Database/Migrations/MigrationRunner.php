@@ -143,11 +143,11 @@ class MigrationRunner
 
     private function classNameFromFile(string $file): string
     {
-        // "20251227121500_create_users_table.php" -> "Migrations\CreateUsersTable"
+        // "20251227121500_create_users_table.php" -> "CreateUsersTable"
         $base = basename($file, '.php'); // 20251227121500_create_users_table
         [$stamp, $rest] = [substr($base, 0, 14), substr($base, 15)];
-        $studly = str_replace(' ', '', ucwords(str_replace('_', ' ', $rest)));
-        return "Migrations\\{$stamp}_{$studly}";
+        $studly = str_replace(' ', '', ucwords(str_replace('_', '', $rest)));
+        return "{$stamp}_{$studly}";
     }
 
     private function loadMigration(string $file): string
