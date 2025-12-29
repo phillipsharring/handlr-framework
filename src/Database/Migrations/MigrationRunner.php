@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace Handlr\Database\Migrations;
 
 use Handlr\Database\Db;
-
-// NOSONAR
+use Migrations; // NOSONAR
 use PDO;
 use RuntimeException;
 
@@ -37,7 +36,7 @@ class MigrationRunner
      */
     private function ensureMigrationsTableExists(): void
     {
-        $sql = 'SHOW TABLES LIKE `migrations`';
+        $sql = "SHOW TABLES LIKE 'migrations'";
         $result = $this->db->execute($sql)->fetchColumn();
 
         if (!$result) {
@@ -144,11 +143,11 @@ class MigrationRunner
 
     private function classNameFromFile(string $file): string
     {
-        // "20251227121500_create_users_table.php" -> "M20251227121500_CreateUsersTable"
+        // "20251227121500_create_users_table.php" -> "Migrations\CreateUsersTable"
         $base = basename($file, '.php'); // 20251227121500_create_users_table
         [$stamp, $rest] = [substr($base, 0, 14), substr($base, 15)];
         $studly = str_replace(' ', '', ucwords(str_replace('_', ' ', $rest)));
-        return "M{$stamp}_{$studly}";
+        return "Migrations\\{$stamp}_{$studly}";
     }
 
     private function loadMigration(string $file): string

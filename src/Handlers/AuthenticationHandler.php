@@ -9,7 +9,6 @@ use Handlr\Core\Response;
 
 class AuthenticationHandler implements Handler
 {
-
     public function handle(Request $request, Response $response, array $args, callable $next): Response
     {
         if (!$request->isAuthenticated()) {

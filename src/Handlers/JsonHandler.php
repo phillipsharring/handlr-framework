@@ -1,0 +1,21 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Handlr\Handlers;
+
+use Handlr\Core\Request;
+use Handlr\Core\Response;
+
+class JsonHandler implements Handler
+{
+    public function __construct(public ?array $data = [], public bool $success = true) {}
+
+    public function handle(Request $request, Response $response, array $args, callable $next): Response
+    {
+        return $response->withJson([
+            'success' => $this->success,
+            'data' => $this->data,
+        ]);
+    }
+}

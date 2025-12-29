@@ -11,7 +11,6 @@ use Throwable;
 
 class ErrorHandler implements Handler
 {
-
     public function handle(Request $request, Response $response, array $args, callable $next): Response
     {
         try {
