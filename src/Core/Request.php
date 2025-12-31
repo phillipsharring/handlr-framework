@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Handlr\Core;
 
+use Exception;
+use Handlr\Handlers\HandlerInput;
 use JsonException;
 
 class Request
@@ -69,5 +71,18 @@ class Request
     {
         // Add logic for checking authentication
         return isset($this->headers['Authorization']);
+    }
+
+    /**
+     * @throws Exception
+     * @throws JsonException
+     */
+    public function asInput($class): HandlerInput
+    {
+        if (!class_exists($class)) {
+            throw new Exception("Input class $class does not exist.");
+        }
+
+        return new $class($this->getParsedBody());
     }
 }
