@@ -6,8 +6,8 @@ namespace Handlr\Core;
 
 use Handlr\Core\Container\Container;
 use Handlr\Database\Db;
-use Handlr\Handlers\ErrorPipe;
-use Handlr\Handlers\LogPipe;
+use Handlr\Pipes\ErrorPipe;
+use Handlr\Pipes\LogPipe;
 use Handlr\Log\Log;
 use Handlr\Log\Psr3Logger;
 use Handlr\Session\DatabaseSessionDriver;

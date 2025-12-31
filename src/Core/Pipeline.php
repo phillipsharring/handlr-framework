@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Handlr\Core;
 
-use Handlr\Handlers\Pipe;
+use Handlr\Pipes\Pipe;
 
 class Pipeline
 {

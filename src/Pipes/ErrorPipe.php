@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Handlr\Handlers;
+namespace Handlr\Pipes;
 
 use Handlr\Core\Request;
 use Handlr\Core\Response;

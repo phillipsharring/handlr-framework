@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Handlr\Core;
 
 use Handlr\Core\Container\Container;
-use Handlr\Handlers\Pipe;
+use Handlr\Pipes\Pipe;
 
 class Router
 {
