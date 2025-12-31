@@ -47,21 +47,34 @@ class MigrateCommand extends Command
             return $this->displayHelp($output, false);
         }
 
-        $container = new Container();
+        // Prefer the app's bootstrap (loads .env + config consistently for web + CLI).
+        if (function_exists('handlr_app')) {
+            $app = handlr_app();
+            /** @var Container $container */
+            $container = $app['container'];
+            /** @var array $config */
+            $config = $app['config'];
+        } else {
+            $container = new Container();
 
-        $appPath = defined('HANDLR_APP_APP_PATH')
-            ? (string)constant('HANDLR_APP_APP_PATH')
-            : null;
+            $appPath = defined('HANDLR_APP_APP_PATH')
+                ? (string)constant('HANDLR_APP_APP_PATH')
+                : null;
+            $appRoot = defined('HANDLR_APP_ROOT')
+                ? (string)constant('HANDLR_APP_ROOT')
+                : (string)getcwd();
+            $configPath = $appPath
+                ? ($appPath . '/config.php')
+                : ($appRoot . '/app/config.php');
+
+            $config = Loader::load($configPath, $container);
+        }
+
+        $db = new Db($config);
+
         $appRoot = defined('HANDLR_APP_ROOT')
             ? (string)constant('HANDLR_APP_ROOT')
             : (string)getcwd();
-        $configPath = $appPath
-            ? ($appPath . '/config.php')
-            : ($appRoot . '/app/config.php');
-
-        $config = Loader::load($configPath, $container);
-        $db = new Db($config);
-
         $migrationPath = $appRoot . '/migrations';
         $runner = new MigrationRunner($db, $migrationPath);
 

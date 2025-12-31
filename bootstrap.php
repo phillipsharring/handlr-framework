@@ -11,9 +11,16 @@ const HANDLR_ROOT = __DIR__;
 $computedAppRoot = realpath(HANDLR_ROOT . '/../../..') ?: (HANDLR_ROOT . '/../../..');
 $cwdAppRoot = getcwd() ?: '';
 
-$appRoot = (is_string($computedAppRoot) && is_file($computedAppRoot . '/bootstrap.php'))
+$frameworkBootstrap = realpath(HANDLR_ROOT . '/bootstrap.php') ?: (HANDLR_ROOT . '/bootstrap.php');
+
+$isValidAppRoot = static function (string $root) use ($frameworkBootstrap): bool {
+    $bootstrapPath = realpath($root . '/bootstrap.php') ?: ($root . '/bootstrap.php');
+    return is_file($bootstrapPath) && $bootstrapPath !== $frameworkBootstrap;
+};
+
+$appRoot = (is_string($computedAppRoot) && $isValidAppRoot($computedAppRoot))
     ? $computedAppRoot
-    : ((is_string($cwdAppRoot) && is_file($cwdAppRoot . '/bootstrap.php')) ? $cwdAppRoot : null);
+    : ((is_string($cwdAppRoot) && $isValidAppRoot($cwdAppRoot)) ? $cwdAppRoot : null);
 
 if (!is_string($appRoot)) {
     throw new RuntimeException(
