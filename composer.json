@@ -19,7 +19,10 @@
     "psr/log": "^3.0",
     "vlucas/phpdotenv": "^5.6",
     "ramsey/uuid": "^4.7",
-    "adbario/php-dot-notation": "^3.3"
+    "adbario/php-dot-notation": "^3.3",
+    "symfony/console": "^8.0",
+    "symfony/filesystem": "^8.0",
+    "symfony/process": "^8.0"
   },
   "require-dev": {
     "roave/security-advisories": "dev-latest"
