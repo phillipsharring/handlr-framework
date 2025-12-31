@@ -1,5 +1,8 @@
-#!/usr/bin/env php
 <?php
+
+declare(strict_types=1);
+
+require_once __DIR__ . '/../vendor/autoload.php';
 
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Input\InputArgument;
@@ -7,8 +10,6 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Filesystem\Filesystem;
-
-require_once __DIR__ . '/../vendor/autoload.php';
 
 $app = new Application();
 
@@ -124,4 +125,8 @@ class {$className}Test extends TestCase
         $output->writeln('<info>Scaffold complete.</info>');
     });
 
-$app->run();
+try {
+    $app->run();
+} catch (Exception $e) {
+
+}

@@ -1,35 +1,46 @@
 <?php
-// scripts/make_migration.php
-// Usage: composer run make:migration -- "create_users_table"
-//        composer run make:migration -- "add_last_login_to_users"
 
-if (!isset($argv[1])) {
-    fwrite(STDERR, "Usage: php make_migration.php <name>\n");
-    exit(1);
-}
+declare(strict_types=1);
 
-$name = trim($argv[1]);
-$stamp = date('YmdHis');
+require_once __DIR__ . '/../vendor/autoload.php';
 
-$filename = "{$stamp}_" . strtolower(preg_replace('/\s+/', '_', $name)) . ".php";
-$path = getcwd() . '/migrations/' . $filename;
+use Symfony\Component\Console\Application;
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\InputArgument;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Filesystem\Filesystem;
 
-// Ensure migrations directory exists
-if (!is_dir(dirname($path))) {
-    mkdir(dirname($path), 0777, true);
-}
+class MakeMigrationCommand extends Command
+{
+    protected static string $name = 'make:migration';
 
-// Build class name
-$studly = str_replace(' ', '', ucwords(str_replace('_', ' ', strtolower($name))));
-$class  = "Migration_{$stamp}_{$studly}";
+    protected function configure(): void
+    {
+        $this
+            ->setDescription('Create a new migration file.')
+            ->addArgument('name', InputArgument::REQUIRED, 'The name of the migration');
+    }
 
-// Migration stub (SQL left empty for you to fill)
-$stub = <<<PHP
+    protected function execute(InputInterface $input, OutputInterface $output): int
+    {
+        $name = trim($input->getArgument('name'));
+        $timestamp = date('YmdHis');
+        $studly = str_replace(' ', '', ucwords(str_replace(['_', '-'], ' ', strtolower($name))));
+        $className = "Migration_{$timestamp}_{$studly}";
+
+        $filename = "{$timestamp}_" . strtolower(preg_replace('/\s+/', '_', $name)) . ".php";
+        $path = getcwd() . '/migrations/' . $filename;
+
+        $filesystem = new Filesystem();
+        $filesystem->mkdir(dirname($path));
+
+        $stub = <<<PHP
 <?php
 
 use Handlr\Database\Migrations\BaseMigration;
 
-class {$class} extends BaseMigration
+class {$className} extends BaseMigration
 {
     public function up(): void
     {
@@ -46,6 +57,14 @@ class {$class} extends BaseMigration
 
 PHP;
 
-file_put_contents($path, $stub);
+        file_put_contents($path, $stub);
+        $output->writeln("<info>✔ Created migration: migrations/{$filename}</info>");
 
-echo "✔ Created migration: migrations/{$filename}\n";
+        return Command::SUCCESS;
+    }
+}
+
+$app = new Application();
+$app->addCommand(new MakeMigrationCommand());
+$app->setDefaultCommand('make:migration', true);
+$app->run();

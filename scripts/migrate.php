@@ -4,110 +4,102 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../bootstrap.php';
 
+use Symfony\Component\Console\Application;
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\InputArgument;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Output\OutputInterface;
 use Handlr\Config\Loader;
 use Handlr\Core\Container\Container;
 use Handlr\Database\Db;
 use Handlr\Database\Migrations\MigrationRunner;
 
-array_shift($argv);
-
-$action = $argv[0] ?? 'up';
-$batches = $argv[1] ?? 1;
-$stepWise = $action === 'up' && $batches === 'step';
-
-if ($action === 'help') {
-    help(false);
-}
-
-$batches = $batches === 'step' ? $batches : (int)$batches;
-
-if (
-    (!is_int($batches) && $batches !== 'step')
-    || ($action === 'down' && $batches === 'step')
-) {
-    help();
-}
-
-// if ($action === 'db-create') {
-//     echo "DB Host: ";
-//     $host = trim(readline());
-//
-//     echo "DB User: ";
-//     $user = trim(readline());
-//
-//     echo "DB Password: ";
-//     shell_exec('stty -echo');  // hide input
-//     $password = trim(readline());
-//     shell_exec('stty echo');
-//     echo "\n";
-// }
-
-$container = new Container();
-
-// Prefer app-defined constants (set by the app's bootstrap.php). Fall back to cwd for framework dev usage.
-$configPath = defined('HANDLR_APP_APP_PATH')
-    ? HANDLR_APP_APP_PATH . '/config.php'
-    : (getcwd() . '/app/config.php');
-
-$config = Loader::load($configPath, $container);
-$db = new Db($config);
-
-$migrationPath = (defined('HANDLR_APP_ROOT') ? HANDLR_APP_ROOT : getcwd()) . '/migrations';
-$runner = new MigrationRunner($db, $migrationPath);
-
-switch ($action) {
-    case 'up':
-        $runner->migrate($stepWise);
-        break;
-
-    case 'down':
-    case 'rollback':
-        $runner->rollback($batches);
-        break;
-
-    case 'db-create':
-        $runner->createDatabase();
-        break;
-
-    default:
-        help();
-}
-
-function help(bool $invalid = true): void
+class MigrateCommand extends Command
 {
-    if ($invalid) {
-        echo "Invalid options" . PHP_EOL
-            . "===============" . PHP_EOL
-            . PHP_EOL;
+    protected static $defaultName = 'migrate';
+
+    protected function configure(): void
+    {
+        $this
+            ->setDescription('Run or rollback database migrations.')
+            ->addArgument('action', InputArgument::REQUIRED, 'Action to perform: up, down, rollback, help')
+            ->addArgument('batches', InputArgument::OPTIONAL, 'Number of batches or "step" for step-wise migration');
     }
 
-    echo <<<HELP
+    protected function execute(InputInterface $input, OutputInterface $output): int
+    {
+        $action = $input->getArgument('action');
+        $batches = $input->getArgument('batches') ?? 1;
+        $stepWise = $action === 'up' && $batches === 'step';
+        $batches = $stepWise ? $batches : (int) $batches;
+
+        if (
+            !in_array($action, ['up', 'down', 'rollback', 'help'], true)
+            || ($action === 'down' && $batches === 'step')
+        ) {
+            return $this->displayHelp($output, true);
+        }
+
+        if ($action === 'help') {
+            return $this->displayHelp($output, false);
+        }
+
+        $container = new Container();
+
+        $configPath = defined('HANDLR_APP_APP_PATH')
+            ? HANDLR_APP_APP_PATH . '/config.php'
+            : (getcwd() . '/app/config.php');
+
+        $config = Loader::load($configPath, $container);
+        $db = new Db($config);
+
+        $migrationPath = (defined('HANDLR_APP_ROOT') ? HANDLR_APP_ROOT : getcwd()) . '/migrations';
+        $runner = new MigrationRunner($db, $migrationPath);
+
+        match ($action) {
+            'up'       => $runner->migrate($stepWise),
+            'down',
+            'rollback' => $runner->rollback($batches),
+        };
+
+        return Command::SUCCESS;
+    }
+
+    private function displayHelp(OutputInterface $output, bool $invalid): int
+    {
+        if ($invalid) {
+            $output->writeln("<error>Invalid options provided.</error>");
+        }
+
+        $output->writeln(<<<HELP
+
 Migration script
 ----------------
-    
-php migrate.php action [batches] [step]
-
-Options:
-action = string 'up', 'down', 'rollback' or 'help'. Required. 'up' to migrate. 'down' or 'rollback' to rollback. 'help' shows this message.
-batches = integer >= 1. Defaults to 1. How many batches to rollback when action = 'down' or 'rollback'.
-step = string 'step'. `true` if provided, defaults to `false`. When `true`, will run each migration in a separate batch.
 
 Usage:
+php scripts/migrate.php [action] [batches]
 
-Migrate
-In 1 batch
-php migrate.php up
+Arguments:
+  action   Action to perform: up, down, rollback, help
+  batches  Integer >= 1 (default: 1), or "step" for step-wise migration
 
-Migrate
-In separate batches
-php migrate.php up step
+Examples:
+  php scripts/migrate.php up
+  php scripts/migrate.php up step
+  php scripts/migrate.php down
+  php scripts/migrate.php down 2
 
-Rollback 1 step
-php migrate.php down
+HELP);
+        return Command::INVALID;
+    }
+}
 
-Rollback N steps
-php migrate.php down 2
+$app = new Application();
+$app->addCommand(new MigrateCommand());
+$app->setDefaultCommand('migrate', true);
 
-HELP;
-    exit();
+try {
+    $app->run();
+} catch (Exception $e) {
+
 }
