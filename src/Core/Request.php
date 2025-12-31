@@ -6,6 +6,7 @@ namespace Handlr\Core;
 
 use Exception;
 use Handlr\Handlers\HandlerInput;
+use Handlr\Validation\Validator;
 use JsonException;
 
 class Request
@@ -83,6 +84,6 @@ class Request
             throw new Exception("Input class $class does not exist.");
         }
 
-        return new $class($this->getParsedBody());
+        return new $class($this->getParsedBody(), new Validator());
     }
 }
