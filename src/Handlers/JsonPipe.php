@@ -7,7 +7,7 @@ namespace Handlr\Handlers;
 use Handlr\Core\Request;
 use Handlr\Core\Response;
 
-class JsonHandler implements Handler
+class JsonPipe implements Pipe
 {
     public function __construct(public ?array $data = [], public bool $success = true) {}
 

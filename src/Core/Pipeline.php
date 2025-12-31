@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Handlr\Core;
 
-use Handlr\Handlers\Handler;
+use Handlr\Handlers\Pipe;
 
 class Pipeline
 {
     private array $handlers = [];
 
-    public function pipe(Handler $handler): self
+    public function pipe(Pipe $handler): self
     {
         $this->handlers[] = $handler;
         return $this;

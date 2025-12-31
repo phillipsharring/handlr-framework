@@ -6,10 +6,10 @@ namespace Handlr\Validation;
 
 use Handlr\Core\Request;
 use Handlr\Core\Response;
-use Handlr\Handlers\Handler;
+use Handlr\Handlers\Pipe;
 use JsonException;
 
-abstract class FormValidator implements Handler, ValidationHandler
+abstract class FormValidator implements Pipe, ValidationHandler
 {
     abstract public function rules(): array;
 

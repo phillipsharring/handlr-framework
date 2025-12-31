@@ -7,7 +7,7 @@ namespace Handlr\Handlers;
 use Handlr\Core\Request;
 use Handlr\Core\Response;
 
-interface Handler
+interface Pipe
 {
     public function handle(Request $request, Response $response, array $args, callable $next): Response;
 }

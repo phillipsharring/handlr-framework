@@ -9,20 +9,20 @@ use Handlr\Core\Response;
 use JsonException;
 use Throwable;
 
-class ErrorHandler implements Handler
+class ErrorPipe implements Pipe
 {
     public function handle(Request $request, Response $response, array $args, callable $next): Response
     {
         try {
             return $next($request, $response, $args);
-        } catch (Throwable $e) {
-            var_dump(get_class($e));
-            var_dump($e->getMessage());
-            return $response->withJson((array)$e, Response::HTTP_SERVER_ERROR);
         } catch (JsonException $e) {
             var_dump(get_class($e));
             return $response->withBody("Error parsing JSON: {$e->getMessage()}")
                 ->withStatus(Response::HTTP_SERVER_ERROR);
+        } catch (Throwable $e) {
+            var_dump(get_class($e));
+            var_dump($e->getMessage());
+            return $response->withJson((array)$e, Response::HTTP_SERVER_ERROR);
         }
     }
 }

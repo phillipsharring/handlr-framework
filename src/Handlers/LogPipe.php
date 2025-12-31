@@ -8,7 +8,7 @@ use Handlr\Core\Request;
 use Handlr\Core\Response;
 use Handlr\Log\Log;
 
-readonly class LogHandler implements Handler
+readonly class LogPipe implements Pipe
 {
     public function __construct(private Log $logger) {}
 

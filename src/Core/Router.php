@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Handlr\Core;
 
 use Handlr\Core\Container\Container;
-use Handlr\Handlers\Handler;
+use Handlr\Handlers\Pipe;
 
 class Router
 {
@@ -13,7 +13,7 @@ class Router
     private array $routes = [];
     public function __construct(private readonly Container $container) {}
 
-    public function addGlobalHandler(Handler $handler): void
+    public function addGlobalPipe(Pipe $handler): void
     {
         $this->globalHandlers[] = $handler;
     }

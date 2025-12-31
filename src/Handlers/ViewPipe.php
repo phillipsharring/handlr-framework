@@ -8,7 +8,7 @@ use Handlr\Core\Request;
 use Handlr\Core\Response;
 use Handlr\Views\View;
 
-class ViewHandler implements Handler
+class ViewPipe implements Pipe
 {
     public function __construct(public string $templatePath, public ?array $data = []) {}
 
