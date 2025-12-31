@@ -8,5 +8,5 @@ use Handlr\Validation\Validator;
 
 interface HandlerInput
 {
-    public function __construct(array $body, ?Validator $validator = null);
+    public function __construct(array $body = [], ?Validator $validator = null);
 }
