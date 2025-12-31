@@ -2,7 +2,8 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/support/require-vendor-autoload.php';
+requireVendorAutoload();
 
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Command\Command;
@@ -13,11 +14,10 @@ use Symfony\Component\Filesystem\Filesystem;
 
 class MakeMigrationCommand extends Command
 {
-    protected static string $name = 'make:migration';
-
     protected function configure(): void
     {
         $this
+            ->setName('make:migration')
             ->setDescription('Create a new migration file.')
             ->addArgument('name', InputArgument::REQUIRED, 'The name of the migration');
     }

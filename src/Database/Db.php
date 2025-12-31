@@ -7,11 +7,13 @@ namespace Handlr\Database;
 use Handlr\Config\Config;
 use PDO;
 use PDOStatement;
+use PDOException;
 
 class Db
 {
     private PDO $connection;
     private ?PDOStatement $lastStatement = null;
+    private string $dsn;
 
     public function __construct(private readonly Config $config)
     {
@@ -23,13 +25,48 @@ class Db
             'options' => $options,
         ] = $dbConfig + ['options' => []]; // default options if missing
 
-        $this->connection = new PDO($dsn, $user, $password, $options);
+        if (!is_string($dsn) || trim($dsn) === '') {
+            throw new DatabaseException('Missing database DSN (expected config key: database.dsn).');
+        }
+
+        $this->dsn = $dsn;
+
+        // For MySQL, PDO requires `dbname=` to select a default database.
+        // If the DSN omits it, queries like "SHOW TABLES" will fail with "No database selected".
+        if ($this->isMysqlDsn($dsn) && !$this->dsnHasDatabaseName($dsn)) {
+            throw new DatabaseException(
+                'MySQL DSN must include a database name using `dbname=`. '
+                    . 'Example: mysql:host=127.0.0.1;port=3306;dbname=your_db;charset=utf8mb4. '
+                    . "Received: {$dsn}"
+            );
+        }
+
+        try {
+            $this->connection = new PDO($dsn, $user, $password, $options);
+        } catch (PDOException $e) {
+            throw new DatabaseException(
+                'Failed to connect to database. '
+                    . "DSN: {$dsn}. "
+                    . "PDO error: {$e->getMessage()}",
+                (int)$e->getCode(),
+                $e
+            );
+        }
+    }
+
+    private function isMysqlDsn(string $dsn): bool
+    {
+        return str_starts_with(strtolower($dsn), 'mysql:');
+    }
+
+    private function dsnHasDatabaseName(string $dsn): bool
+    {
+        return (bool)preg_match('/(^|;)dbname=([^;]+)/i', $dsn);
     }
 
     public function getDatabaseName(): string
     {
-        $dsn = $this->config->get('database.dsn');
-        preg_match('/dbname=([^;]+)/', $dsn, $matches);
+        preg_match('/dbname=([^;]+)/i', $this->dsn, $matches);
         return $matches[1] ?? '';
     }
 

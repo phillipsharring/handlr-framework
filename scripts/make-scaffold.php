@@ -2,9 +2,11 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/support/require-vendor-autoload.php';
+requireVendorAutoload();
 
 use Symfony\Component\Console\Application;
+use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -33,7 +35,7 @@ $app->register('make:scaffold')
 
         if ($fs->exists($baseDir)) {
             $output->writeln("<error>Directory already exists: $baseDir</error>");
-            return;
+            return Command::FAILURE;
         }
 
         $fs->mkdir($baseDir);
@@ -123,7 +125,13 @@ class {$className}Test extends TestCase
         }
 
         $output->writeln('<info>Scaffold complete.</info>');
+        return Command::SUCCESS;
     });
+
+// Treat this script as a single-command CLI, so arguments like:
+//   php make-scaffold.php GamePlay/CreateSeries
+// work (and Composer's `composer run make:scaffold -- GamePlay/CreateSeries` too).
+$app->setDefaultCommand('make:scaffold', true);
 
 try {
     $app->run();

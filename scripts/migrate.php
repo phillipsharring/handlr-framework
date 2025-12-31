@@ -2,7 +2,8 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/../bootstrap.php';
+require_once __DIR__ . '/support/require-vendor-autoload.php';
+requireVendorAutoload();
 
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Command\Command;
@@ -13,14 +14,14 @@ use Handlr\Config\Loader;
 use Handlr\Core\Container\Container;
 use Handlr\Database\Db;
 use Handlr\Database\Migrations\MigrationRunner;
+use Throwable;
 
 class MigrateCommand extends Command
 {
-    protected static $defaultName = 'migrate';
-
     protected function configure(): void
     {
         $this
+            ->setName('migrate')
             ->setDescription('Run or rollback database migrations.')
             ->addArgument('action', InputArgument::REQUIRED, 'Action to perform: up, down, rollback, help')
             ->addArgument('batches', InputArgument::OPTIONAL, 'Number of batches or "step" for step-wise migration');
@@ -46,8 +47,11 @@ class MigrateCommand extends Command
 
         $container = new Container();
 
-        $configPath = defined('HANDLR_APP_APP_PATH')
-            ? HANDLR_APP_APP_PATH . '/config.php'
+        $appPath = defined('HANDLR_APP_APP_PATH')
+            ? (string)constant('HANDLR_APP_APP_PATH')
+            : null;
+        $configPath = $appPath
+            ? ($appPath . '/config.php')
             : (getcwd() . '/app/config.php');
 
         $config = Loader::load($configPath, $container);
@@ -100,6 +104,7 @@ $app->setDefaultCommand('migrate', true);
 
 try {
     $app->run();
-} catch (Exception $e) {
-
+} catch (Throwable $e) {
+    fwrite(STDERR, $e->getMessage() . PHP_EOL);
+    exit(Command::FAILURE);
 }
