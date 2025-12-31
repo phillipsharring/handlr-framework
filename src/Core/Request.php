@@ -6,7 +6,7 @@ namespace Handlr\Core;
 
 use JsonException;
 
-readonly class Request
+class Request
 {
     public function __construct(
         private array $query,

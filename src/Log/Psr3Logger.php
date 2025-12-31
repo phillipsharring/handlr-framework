@@ -7,7 +7,7 @@ namespace Handlr\Log;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
 
-readonly class Psr3Logger implements LoggerInterface
+class Psr3Logger implements LoggerInterface
 {
     public string $file;
     public function __construct(private ?string $logFile = null) {
