@@ -15,6 +15,9 @@ class Db
     private ?PDOStatement $lastStatement = null;
     private string $dsn;
 
+    /**
+     * @throws DatabaseException
+     */
     public function __construct(private readonly Config $config)
     {
         $dbConfig = $this->config->get('database', []);

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/support/require-vendor-autoload.php';
-requireVendorAutoload();
+require_once __DIR__ . '/../bootstrap.php';
 
+use Handlr\Database\DatabaseException;
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -14,7 +14,6 @@ use Handlr\Config\Loader;
 use Handlr\Core\Container\Container;
 use Handlr\Database\Db;
 use Handlr\Database\Migrations\MigrationRunner;
-use Throwable;
 
 class MigrateCommand extends Command
 {
@@ -27,6 +26,9 @@ class MigrateCommand extends Command
             ->addArgument('batches', InputArgument::OPTIONAL, 'Number of batches or "step" for step-wise migration');
     }
 
+    /**
+     * @throws DatabaseException
+     */
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $action = $input->getArgument('action');
@@ -50,14 +52,17 @@ class MigrateCommand extends Command
         $appPath = defined('HANDLR_APP_APP_PATH')
             ? (string)constant('HANDLR_APP_APP_PATH')
             : null;
+        $appRoot = defined('HANDLR_APP_ROOT')
+            ? (string)constant('HANDLR_APP_ROOT')
+            : (string)getcwd();
         $configPath = $appPath
             ? ($appPath . '/config.php')
-            : (getcwd() . '/app/config.php');
+            : ($appRoot . '/app/config.php');
 
         $config = Loader::load($configPath, $container);
         $db = new Db($config);
 
-        $migrationPath = (defined('HANDLR_APP_ROOT') ? HANDLR_APP_ROOT : getcwd()) . '/migrations';
+        $migrationPath = $appRoot . '/migrations';
         $runner = new MigrationRunner($db, $migrationPath);
 
         match ($action) {
