@@ -61,3 +61,4 @@ final class RouteGroup
         return $joined === '' ? '/' : $joined;
     }
 }
+
