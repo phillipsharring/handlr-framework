@@ -16,12 +16,9 @@ class ErrorPipe implements Pipe
         try {
             return $next($request, $response, $args);
         } catch (JsonException $e) {
-            var_dump(get_class($e));
             return $response->withBody("Error parsing JSON: {$e->getMessage()}")
                 ->withStatus(Response::HTTP_SERVER_ERROR);
         } catch (Throwable $e) {
-            var_dump(get_class($e));
-            var_dump($e->getMessage());
             return $response->withJson((array)$e, Response::HTTP_SERVER_ERROR);
         }
     }
