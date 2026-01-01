@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace Handlr\Core;
 
 use Handlr\Core\Container\Container;
+use Handlr\Core\Routes\Router;
 use Handlr\Database\Db;
-use Handlr\Pipes\ErrorPipe;
-use Handlr\Pipes\LogPipe;
 use Handlr\Log\Log;
 use Handlr\Log\Psr3Logger;
+use Handlr\Pipes\ErrorPipe;
+use Handlr\Pipes\LogPipe;
 use Handlr\Session\DatabaseSessionDriver;
 use Handlr\Session\Session;
 

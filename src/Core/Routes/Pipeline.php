@@ -2,8 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Handlr\Core;
+namespace Handlr\Core\Routes;
 
+use Handlr\Core\Response;
 use Handlr\Pipes\Pipe;
 
 class Pipeline

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Handlr\Core;
+namespace Handlr\Core\Routes;
 
 final class RouteGroup
 {
