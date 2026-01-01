@@ -8,20 +8,20 @@ use Handlr\Pipes\Pipe;
 
 class Pipeline
 {
-    private array $handlers = [];
+    private array $pipes = [];
 
-    public function pipe(Pipe $handler): self
+    public function lay(Pipe $pipe): self
     {
-        $this->handlers[] = $handler;
+        $this->pipes[] = $pipe;
         return $this;
     }
 
     public function run($request, $response, $args): Response
     {
-        $next = static fn ($req, $res, $args) => $res;
+        $next = static fn($req, $res, $args) => $res;
 
-        foreach (array_reverse($this->handlers) as $handler) {
-            $next = static fn ($req, $res, $args) => $handler->handle($req, $res, $args, $next);
+        foreach (array_reverse($this->pipes) as $pipe) {
+            $next = static fn($req, $res, $args) => $pipe->handle($req, $res, $args, $next);
         }
 
         return $next($request, $response, $args);
