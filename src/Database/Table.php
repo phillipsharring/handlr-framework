@@ -54,6 +54,79 @@ abstract class Table
     {
         $recordInstance = $this->getRecordInstance();
 
+        [$whereSql, $params] = $this->buildWhere($conditions, $recordInstance);
+        $sql = "SELECT * FROM `$this->tableName`"
+            . ($whereSql !== '' ? " WHERE {$whereSql}" : '');
+
+        $stmt = $this->db->execute($sql, $params);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return $this->hydrateRows($rows, $recordInstance);
+    }
+
+    /**
+     * Returns paginated results in the form:
+     *  - data: Record[]
+     *  - meta: pagination metadata (counts/pages/range)
+     */
+    public function paginate(array $conditions = [], int $page = 1, int $perPage = 25): array
+    {
+        $recordInstance = $this->getRecordInstance();
+
+        $page = max(1, $page);
+        $perPage = max(1, $perPage);
+        $offset = ($page - 1) * $perPage;
+
+        [$whereSql, $params] = $this->buildWhere($conditions, $recordInstance);
+        $wherePart = ($whereSql !== '' ? " WHERE {$whereSql}" : '');
+
+        // 1) total count query
+        $countSql = "SELECT COUNT(*) AS `total` FROM `$this->tableName`{$wherePart}";
+        $total = (int)$this->db->execute($countSql, $params)->fetchColumn();
+
+        // 2) page data query
+        // NOTE: Many PDO drivers do not allow binding LIMIT/OFFSET placeholders reliably.
+        // Since these are integers derived from arguments, embed them after clamping/casting.
+        $dataSql = "SELECT * FROM `$this->tableName`{$wherePart} LIMIT {$perPage} OFFSET {$offset}";
+        $rows = $this->db->execute($dataSql, $params)->fetchAll(PDO::FETCH_ASSOC);
+        $data = $this->hydrateRows($rows, $recordInstance);
+
+        $lastPage = $total > 0 ? (int)ceil($total / $perPage) : 0;
+        // If the requested page is out of range (or otherwise returns no rows),
+        // avoid impossible ranges like from > to.
+        if ($total === 0 || count($data) === 0) {
+            $from = 0;
+            $to = 0;
+        } else {
+            $from = $offset + 1;
+            $to = min($offset + count($data), $total);
+        }
+
+        return [
+            'data' => $data,
+            'meta' => [
+                'current_page' => $page,
+                'per_page' => $perPage,
+                'total' => $total,
+                'last_page' => $lastPage,
+                'from' => $from,
+                'to' => $to,
+                'count' => count($data),
+                'has_more_pages' => ($lastPage > 0) && ($page < $lastPage),
+                'next_page' => ($lastPage > 0 && $page < $lastPage) ? ($page + 1) : null,
+                'prev_page' => ($lastPage > 0 && $page > $lastPage)
+                    ? $lastPage
+                    : (($page > 1) ? ($page - 1) : null),
+            ],
+        ];
+    }
+
+    /**
+     * @return array{0:string,1:array} [whereSql, params]
+     * @throws DatabaseException
+     */
+    private function buildWhere(array $conditions, Record $recordInstance): array
+    {
         $whereClauses = [];
         $params = [];
 
@@ -69,25 +142,34 @@ abstract class Table
             array_push($params, ...$clauseParams);
         }
 
-        $whereSql = implode(' AND ', $whereClauses);
-        $sql = "SELECT * FROM `$this->tableName`"
-            . ($whereSql !== '' ? " WHERE {$whereSql}" : '');
+        return [implode(' AND ', $whereClauses), $params];
+    }
 
-        $stmt = $this->db->execute($sql, $params);
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    /**
+     * @param array<int,array<string,mixed>> $rows
+     * @return Record[]
+     */
+    private function hydrateRows(array $rows, Record $recordInstance): array
+    {
+        return array_map(fn(array $row) => $this->hydrateRow($row, $recordInstance), $rows);
+    }
 
-        return array_map(function ($row) use ($recordInstance) {
-            if (isset($row['id'])) {
-                if ($recordInstance->useUuid) {
-                    $row['id'] = $this->db->binToUuid($row['id']);
-                } else {
-                    $row['id'] = (int)$row['id'];
-                }
+    /**
+     * @param array<string,mixed> $row
+     */
+    private function hydrateRow(array $row, Record $recordInstance): Record
+    {
+        if (isset($row['id'])) {
+            if ($recordInstance->useUuid) {
+                $row['id'] = $this->db->binToUuid($row['id']);
             } else {
-                $row['id'] = 0;
+                $row['id'] = (int)$row['id'];
             }
-            return new $this->recordClass($row);
-        }, $rows);
+        } else {
+            $row['id'] = 0;
+        }
+
+        return new $this->recordClass($row);
     }
 
     /**
