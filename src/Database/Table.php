@@ -58,6 +58,12 @@ abstract class Table
         $params = [];
 
         foreach ($conditions as $column => $value) {
+            // Basic safety: $column becomes part of SQL (identifiers can't be parameterized).
+            // We only allow simple column names here.
+            if (!is_string($column) || !preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $column)) {
+                throw new DatabaseException("Invalid column name in conditions: {$column}");
+            }
+
             if ($column === 'id') {
                 if ($recordInstance->useUuid) {
                     $value = $this->db->uuidToBin((string)$value);
@@ -66,12 +72,13 @@ abstract class Table
                 }
             }
 
-            $whereClauses[] = "$column = ?";
+            $whereClauses[] = "`$column` = ?";
             $params[] = $value;
         }
 
-        $whereSql = $whereClauses ? 'WHERE ' . implode(' AND ', $whereClauses) : '';
-        $sql = "SELECT * FROM `$this->tableName` $whereSql";
+        $whereSql = implode(' AND ', $whereClauses);
+        $sql = "SELECT * FROM `$this->tableName`"
+            . ($whereSql !== '' ? " WHERE {$whereSql}" : '');
 
         $stmt = $this->db->execute($sql, $params);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
