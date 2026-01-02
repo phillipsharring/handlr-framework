@@ -6,6 +6,7 @@ namespace Handlr\Pipes;
 
 use Handlr\Core\Request;
 use Handlr\Core\Response;
+use Handlr\Core\RequestException;
 use JsonException;
 use Throwable;
 
@@ -15,6 +16,10 @@ class ErrorPipe implements Pipe
     {
         try {
             return $next($request, $response, $args);
+        } catch (RequestException $e) {
+            return $response->withJson([
+                'error' => $e->getMessage(),
+            ], $e->getStatusCode());
         } catch (JsonException $e) {
             return $response->withBody("Error parsing JSON: {$e->getMessage()}")
                 ->withStatus(Response::HTTP_SERVER_ERROR);

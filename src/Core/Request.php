@@ -19,7 +19,9 @@ class Request
         private string $body,
         private array $server,
         private array $headers
-    ) {}
+    ) {
+        $this->body = trim($this->body);
+    }
 
     public static function fromGlobals(): self
     {
@@ -48,11 +50,19 @@ class Request
     }
 
     /**
-     * @throws JsonException
+     * @throws RequestException
      */
     public function getParsedBody(): array
     {
-        return json_decode($this->body, true, 512, JSON_THROW_ON_ERROR);
+        if (trim($this->body) === '') {
+            return [];
+        }
+
+        try {
+            return json_decode($this->body, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException $e) {
+            throw new RequestException('Invalid JSON body', Response::HTTP_BAD_REQUEST, $e);
+        }
     }
 
     public function getHeader(string $name): ?string
@@ -78,7 +88,7 @@ class Request
 
     /**
      * @throws Exception
-     * @throws JsonException
+     * @throws RequestException
      */
     public function asInput($class): HandlerInput
     {

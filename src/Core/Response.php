@@ -48,14 +48,22 @@ class Response
             ->withStatus($statusCode);
     }
 
-    /**
-     * @throws JsonException
-     */
     public function withJson(array $data, int $statusCode = self::HTTP_OK): self
     {
+        try {
+            $json = json_encode($data, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            // Avoid hard-failing the response pipeline if JSON encoding fails (e.g. invalid UTF-8).
+            // Keep the payload simple and always-valid JSON.
+            return $this
+                ->withHeader('Content-Type', 'application/json')
+                ->withBody('{"error":"JSON encoding failed"}')
+                ->withStatus(self::HTTP_SERVER_ERROR);
+        }
+
         return $this
             ->withHeader('Content-Type', 'application/json')
-            ->withBody(json_encode($data, JSON_THROW_ON_ERROR))
+            ->withBody($json)
             ->withStatus($statusCode);
     }
 
