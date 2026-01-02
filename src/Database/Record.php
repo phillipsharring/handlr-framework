@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Handlr\Database;
 
 use Ramsey\Uuid\Uuid;
-use Random\RandomException;
 
 abstract class Record
 {
@@ -17,38 +16,57 @@ abstract class Record
 
     public function __construct(array $data = [])
     {
-        foreach ($data as $key => $value) {
-            $this->data[$key] = $value;
+        // ID is stored on the public property, never inside $this->data.
+        if (array_key_exists('id', $data) && $data['id'] !== null && $data['id'] !== '') {
+            $this->id = $data['id'];
+            unset($data['id']);
+        } elseif ($this->useUuid) {
+            // If UUIDs are enabled and no id is provided, assume this is a new record.
+            $this->id = $this->generateUuid();
         }
 
-        if ($this->useUuid && empty($this->data['id'])) {
-            $this->data['id'] = $this->generateUuid();
+        foreach ($data as $key => $value) {
+            $this->data[$key] = $value;
         }
     }
 
     public function __get(string $key)
     {
+        if ($key === 'id') {
+            return $this->id;
+        }
         return $this->data[$key] ?? null;
     }
 
     public function __set(string $key, $value)
     {
+        if ($key === 'id') {
+            $this->id = $value;
+            return;
+        }
         $this->data[$key] = $value;
     }
 
     public function __isset(string $key): bool
     {
+        if ($key === 'id') {
+            return isset($this->id);
+        }
         return isset($this->data[$key]);
     }
 
     public function __unset(string $key)
     {
+        if ($key === 'id') {
+            $this->id = null;
+            return;
+        }
         unset($this->data[$key]);
     }
 
     public function toArray(): array
     {
-        return $this->data;
+        return ['id' => $this->id] + $this->data;
     }
 
     private function generateUuid(): string

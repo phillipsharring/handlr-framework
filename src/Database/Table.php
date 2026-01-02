@@ -50,7 +50,7 @@ abstract class Table
         return $this->findWhere($conditions)[0] ?? null;
     }
 
-    public function findWhere(array $conditions): array
+    public function findWhere(array $conditions = []): array
     {
         $recordInstance = $this->getRecordInstance();
 
@@ -58,23 +58,33 @@ abstract class Table
         $params = [];
 
         foreach ($conditions as $column => $value) {
-            if ($recordInstance->useUuid && $column === 'id') {
-                $value = $this->db->uuidToBin((string)$value);
+            if ($column === 'id') {
+                if ($recordInstance->useUuid) {
+                    $value = $this->db->uuidToBin((string)$value);
+                } else {
+                    $value = (int)$value;
+                }
             }
 
             $whereClauses[] = "$column = ?";
             $params[] = $value;
         }
 
-        $whereSql = implode(' AND ', $whereClauses);
-        $sql = "SELECT * FROM `$this->tableName` WHERE $whereSql";
+        $whereSql = $whereClauses ? 'WHERE ' . implode(' AND ', $whereClauses) : '';
+        $sql = "SELECT * FROM `$this->tableName` $whereSql";
 
         $stmt = $this->db->execute($sql, $params);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         return array_map(function ($row) use ($recordInstance) {
-            if ($recordInstance->useUuid && isset($row['id'])) {
-                $row['id'] = $this->db->binToUuid($row['id']);
+            if (isset($row['id'])) {
+                if ($recordInstance->useUuid) {
+                    $row['id'] = $this->db->binToUuid($row['id']);
+                } else {
+                    $row['id'] = (int)$row['id'];
+                }
+            } else {
+                $row['id'] = 0;
             }
             return new $this->recordClass($row);
         }, $rows);
@@ -86,8 +96,13 @@ abstract class Table
 
         $data = $record->toArray();
 
-        if ($record->useUuid && isset($data['id'])) {
-            $data['id'] = $this->db->uuidToBin((string)$data['id']);
+        // If using auto-increment IDs, don't insert a null/empty id.
+        if (!$record->useUuid && (empty($data['id']) && $data['id'] !== 0)) {
+            unset($data['id']);
+        }
+
+        if ($record->useUuid && isset($data['id']) && $data['id'] !== '') {
+            $data['id'] = $this->db->uuidToBin((string)$record->id);
         }
 
         $columns = implode(
@@ -101,7 +116,7 @@ abstract class Table
         $this->db->execute($sql, $values);
 
         if ($record->useUuid) {
-            $insertId = $data['id']; // Use the provided UUID as the ID
+            $insertId = $record->id; // Use the provided/generated UUID as the ID
         } else {
             $insertId = $this->db->insertId();
             $record->id = $insertId; // Set the new ID on the Record object
@@ -117,13 +132,13 @@ abstract class Table
     {
         unset($record->updated_at);
 
-        $data = $record->toArray();
-        if (!isset($data['id'])) {
+        $id = $record->id;
+        if ($id === null || $id === '') {
             throw new DatabaseException('Cannot update a record without an ID.');
         }
 
-        $id = $data['id'];
         // id is not updated
+        $data = $record->toArray();
         unset($data['id']);
 
         if ($record->useUuid) {
