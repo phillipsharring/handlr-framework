@@ -6,8 +6,8 @@ namespace Handlr\Validation\Sanitizers;
 
 class EmailSanitizer implements Sanitizer
 {
-    public function sanitize($value, array $ruleArgs = [])
+    public function sanitize($value, array $ruleArgs = []): string
     {
-        return filter_var($value, FILTER_SANITIZE_EMAIL);
+        return (string) trim(filter_var($value, FILTER_SANITIZE_EMAIL));
     }
 }

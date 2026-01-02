@@ -6,8 +6,6 @@ namespace Handlr\Validation\Rules;
 
 class UrlRule extends BaseRule
 {
-    private string $errorMessage = '';
-
     public function validate($value, array $ruleArgs = [], array $data = []): bool
     {
         if (!filter_var($value, FILTER_VALIDATE_URL)) {

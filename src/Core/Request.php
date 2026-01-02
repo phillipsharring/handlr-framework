@@ -6,6 +6,8 @@ namespace Handlr\Core;
 
 use Exception;
 use Handlr\Handlers\HandlerInput;
+use Handlr\Validation\Rules\RuleValidatorFactory;
+use Handlr\Validation\Sanitizers\SanitizerFactory;
 use Handlr\Validation\Validator;
 use JsonException;
 
@@ -84,6 +86,9 @@ class Request
             throw new Exception("Input class $class does not exist.");
         }
 
-        return new $class($this->getParsedBody(), new Validator());
+        return new $class($this->getParsedBody(), new Validator(
+            new RuleValidatorFactory(),
+            new SanitizerFactory()
+        ));
     }
 }

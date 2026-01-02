@@ -6,5 +6,5 @@ namespace Handlr\Validation\Sanitizers;
 
 interface Sanitizer
 {
-    public function sanitize(mixed $value, array $ruleArgs);
+    public function sanitize(mixed $value, array $ruleArgs = []);
 }

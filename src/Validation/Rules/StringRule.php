@@ -16,13 +16,13 @@ class StringRule extends BaseRule
         }
 
         // max length
-        if ($isValid && isset($ruleArgs['max']) && strlen($value) > $ruleArgs['max']) {
+        if ($isValid && ($ruleArgs['max'] ?? false) && strlen($value) > $ruleArgs['max']) {
             $this->errorMessage = 'The %s value must not exceed ' . $ruleArgs['max'] . ' characters.';
             $isValid = false;
         }
 
         // min length
-        if ($isValid && isset($ruleArgs['min']) && strlen($value) < $ruleArgs['min']) {
+        if ($isValid && ($ruleArgs['min'] ?? false) && strlen($value) < $ruleArgs['min']) {
             $this->errorMessage = 'The %s value must be at least ' . $ruleArgs['min'] . ' characters long.';
             $isValid = false;
         }

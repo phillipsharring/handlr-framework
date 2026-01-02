@@ -6,7 +6,6 @@ namespace Handlr\Core\Container;
 
 use Exception;
 use Handlr\Log\Log;
-use Handlr\Core\Exceptions\ContainerException;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionParameter;

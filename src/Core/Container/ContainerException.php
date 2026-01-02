@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Handlr\Core\Exceptions;
+namespace Handlr\Core\Container;
 
 use RuntimeException;
 

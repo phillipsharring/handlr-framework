@@ -8,7 +8,8 @@ class EmailRule extends BaseRule
 {
     public function validate($value, array $ruleArgs = [], array $data = []): bool
     {
-        if (!filter_var($value, FILTER_VALIDATE_EMAIL)) {
+        $email = trim($value);
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $this->errorMessage = 'The %s value must be a valid email address.';
             return false;
         }

@@ -4,24 +4,29 @@ declare(strict_types=1);
 
 namespace Handlr\Validation;
 
-use Handlr\Core\Container\Container;
-use Handlr\Validation\Rules\BaseRule;
 use Handlr\Validation\Rules\RuleValidator;
-use Handlr\Validation\Sanitizers\Sanitizer;
+use Handlr\Validation\Rules\RuleValidatorFactory;
+use Handlr\Validation\Sanitizers\SanitizerFactory;
 
 class Validator
 {
-    private const array RULES_WITHOUT_SANITIZATION = [
-        'confirmed',
-        'exists',
-        'max',
-        'min',
+    public function __construct(
+        private readonly RuleValidatorFactory $ruleValidatorFactory,
+        private readonly SanitizerFactory $sanitizerFactory,
+    ) {}
+
+    private const RULES_WITHOUT_SANITIZATION = [
         'required',
-        'unique',
+        'date',
+        'array'
     ];
+    private const SANITIZER_SUBSTITUTIONS = [
+        'uuid'        => 'string',
+        'gcsFilename' => 'string',
+    ];
+    private const VALID_DEFAULT_TYPES = ['int', 'string', 'bool', 'float', 'array'];
 
     private array $errors = [];
-
     private array $sanitized = [];
 
     public function errors(): array
@@ -29,9 +34,13 @@ class Validator
         return $this->errors;
     }
 
-    public function sanitized(): array
+    public function sanitized(?string $key = null): mixed
     {
-        return $this->sanitized;
+        if ($key === null) {
+            return $this->sanitized;
+        }
+
+        return $this->sanitized[$key] ?? null;
     }
 
     public function isValid(): bool
@@ -43,36 +52,108 @@ class Validator
     {
         foreach ($rules as $field => $ruleSet) {
             $value = $data[$field] ?? null;
-            $this->processRuleset($data, $field, $ruleSet, $value);
+            $this->validateRule($data, $field, $ruleSet, $value);
         }
 
         return $this->isValid();
     }
 
-    private function processRuleset(array $data, string $field, array $ruleSet, $value): void
+    private function validateRule(array $data, string $field, array $ruleSet, $value): void
     {
-        foreach ($ruleSet as $rule) {
-            [$ruleName, $ruleArgs] = $this->parseRule($rule);
-            $ruleValidator = $this->getRuleValidator($ruleName, $field);
+        $isNullable = in_array('nullable', $ruleSet, true);
 
+        if ($isNullable) {
+            $default = $this->getDefaultValue($field,$ruleSet);
+
+            if (empty($value) && $value !== '0' && $value !== 0) {
+                $this->sanitized[$field] = $default ? $this->castDefaultValue($default, $ruleSet) : null;
+                return;
+            }
+        }
+
+        foreach ($ruleSet as $rule) {
+            if ($rule === 'nullable') {
+                continue;
+            }
+
+            [$ruleName, $ruleArgs] = $this->parseRuleString($rule);
+
+            $ruleValidator = $this->ruleValidatorFactory->create($ruleName, $field);
             if (!$ruleValidator->validate($value, $ruleArgs, $data)) {
                 $this->addRuleErrors($ruleValidator);
                 return;
             }
 
             if (in_array($ruleName, self::RULES_WITHOUT_SANITIZATION, true)) {
+                $this->sanitized[$field] = $value;
                 continue;
             }
 
-            $valueSanitizer = $this->getValueSanitizer($ruleName);
+            $sanitizerName = self::SANITIZER_SUBSTITUTIONS[$ruleName] ?? $ruleName;
+            $valueSanitizer = $this->sanitizerFactory->create($sanitizerName);
             $this->sanitized[$field] = $valueSanitizer->sanitize($value, $ruleArgs);
         }
     }
 
-    private function parseRule(string $rule): array
+    private function getDefaultValue(string $field, array &$ruleSet): ?string
     {
-        $parts = explode(':', $rule, 2);
-        return [$parts[0], isset($parts[1]) ? explode(',', $parts[1]) : []];
+        foreach ($ruleSet as $key => $rule) {
+            if (strpos($rule, 'default|') === false) {
+                continue;
+            }
+
+            [, $defaultValue] = explode('|', $rule, 2);
+            unset($ruleSet[$key]);
+
+            return $defaultValue;
+        }
+
+        return null;
+    }
+
+    private function castDefaultValue(?string $defaultValue, array $ruleSet): mixed
+    {
+        if ($defaultValue === null) {
+            return null;
+        }
+
+        $expectedType = current(array_intersect($ruleSet, self::VALID_DEFAULT_TYPES)) ?: 'string';
+
+        return match ($expectedType) {
+            'int'    => is_numeric($defaultValue) ? (int) $defaultValue : null,
+            'float'  => is_numeric($defaultValue) ? (float) $defaultValue : null,
+            'bool'   => in_array($defaultValue, ['true', 'false', '1', '0', 'on', 'off'], true)
+                        ? filter_var($defaultValue, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE)
+                        : null,
+            'array'  => explode(',', $defaultValue),
+            default  => (string) $defaultValue,
+        };
+    }
+
+    /**
+     * This parses a SINGLE rule's string
+     */
+    private function parseRuleString(string $ruleString): array
+    {
+        // Split the rule string into the rule name and arguments string
+        $ruleArray = explode('|', $ruleString, 2);
+
+        // destructuring causes a warning when rule string was just one value, e.g. 'string'
+        // so, don't do this: [ $ruleName, $argsString ] = explode...
+        $ruleName = $ruleArray[0] ?? '';
+        $argsString = $ruleArray[1] ?? '';
+
+        // Parse the arguments string into a keyed array
+        $ruleArgs = [];
+        if ($argsString) {
+            foreach (explode(',', $argsString) as $argString) {
+                [$key, $value] = explode(':', $argString);
+                $ruleArgs[$key] = $value ?? null;
+            }
+        }
+
+        // Return an array
+        return [$ruleName, $ruleArgs];
     }
 
     private function addRuleErrors(RuleValidator $ruleValidator): void
@@ -81,35 +162,5 @@ class Validator
         foreach ($ruleValidator->getOtherFieldErrors() as $oField => $oError) {
             $this->errors[$oField] = $oError;
         }
-    }
-
-    private function getRuleValidator(string $ruleName, string $field): RuleValidator
-    {
-        $ruleValidatorNamespace = 'Handlr\\Validation\\Rules\\';
-        $ruleValidatorClass = $ruleValidatorNamespace . ucfirst($ruleName) . 'Rule';
-
-        if (!class_exists($ruleValidatorClass)) {
-            throw new ValidationException("Validator for $ruleName not found.");
-        }
-
-        var_dump($ruleValidatorClass);
-
-        /** @var BaseRule $ruleValidator */
-        $ruleValidator = new Container()->get($ruleValidatorClass);
-        $ruleValidator->setField($field);
-
-        return $ruleValidator;
-    }
-
-    private function getValueSanitizer(string $ruleName): Sanitizer
-    {
-        $valueSanitizerNamespace = 'Handlr\\Validation\\Sanitizers\\';
-        $valueSanitizerClass = $valueSanitizerNamespace . ucfirst($ruleName) . 'Sanitizer';
-
-        if (!class_exists($valueSanitizerClass)) {
-            throw new ValidationException("Sanitizer for $ruleName not found.");
-        }
-
-        return new $valueSanitizerClass();
     }
 }
