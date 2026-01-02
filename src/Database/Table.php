@@ -169,6 +169,29 @@ abstract class Table
             return ["`{$column}` BETWEEN ? AND ?", [$from, $to]];
         }
 
+        if ($op === 'IN' || $op === 'NOT IN') {
+            if (!is_array($value)) {
+                throw new DatabaseException("{$op} condition for {$column} must provide an array of values.");
+            }
+
+            // Normalize values (especially important for id UUID->BIN).
+            $values = array_values($value);
+            $values = array_map(
+                fn($v) => $this->normalizeIdConditionValue($column, $op, $v, $recordInstance),
+                $values
+            );
+
+            // SQL edge cases:
+            // - `IN ()` is invalid; treat empty IN as always false.
+            // - `NOT IN ()` is always true (no exclusions).
+            if ($values === []) {
+                return [$op === 'IN' ? '0 = 1' : '1 = 1', []];
+            }
+
+            $placeholders = implode(',', array_fill(0, count($values), '?'));
+            return ["`{$column}` {$op} ({$placeholders})", $values];
+        }
+
         // LIKE / NOT LIKE: % is not eaten by parameterization; it works as expected.
         $value = $this->normalizeIdConditionValue($column, $op, $value, $recordInstance);
         return ["`{$column}` {$op} ?", [$value]];
@@ -190,6 +213,8 @@ abstract class Table
             'LIKE',
             'NOT LIKE',
             'BETWEEN',
+            'IN',
+            'NOT IN',
         ];
     }
 
