@@ -64,16 +64,9 @@ abstract class Table
                 throw new DatabaseException("Invalid column name in conditions: {$column}");
             }
 
-            if ($column === 'id') {
-                if ($recordInstance->useUuid) {
-                    $value = $this->db->uuidToBin((string)$value);
-                } else {
-                    $value = (int)$value;
-                }
-            }
-
-            $whereClauses[] = "`$column` = ?";
-            $params[] = $value;
+            [$clause, $clauseParams] = $this->buildWhereClause($column, $value, $recordInstance);
+            $whereClauses[] = $clause;
+            array_push($params, ...$clauseParams);
         }
 
         $whereSql = implode(' AND ', $whereClauses);
@@ -95,6 +88,135 @@ abstract class Table
             }
             return new $this->recordClass($row);
         }, $rows);
+    }
+
+    /**
+     * Supports:
+     * - Primitive shorthand: ['name' => 'Phil'] => `name` = ?
+     * - Operator form (indexed): ['name' => ['<>', 'Phil']] or ['name' => ['Phil', '<>']]
+     * - Operator form (assoc): ['name' => ['operator' => '<>', 'value' => 'Phil']] (key order doesn't matter)
+     * - BETWEEN: ['date' => ['BETWEEN', '2025-01-01', '2025-12-31']] or ['operator'=>'between','value'=>['2025-01-01','2025-12-31']]
+     *
+     * @return array{0:string,1:array} [sqlClause, params]
+     * @throws DatabaseException
+     */
+    private function buildWhereClause(string $column, mixed $condition, Record $recordInstance): array
+    {
+        // 1) Primitive shorthand
+        if (!is_array($condition)) {
+            $op = '=';
+            $value = $this->normalizeIdConditionValue($column, $op, $condition, $recordInstance);
+            return ["`{$column}` {$op} ?", [$value]];
+        }
+
+        // 2) Operator forms
+        $operator = null;
+        $value = null;
+
+        // Assoc form: ['operator' => '>=', 'value' => 123]
+        if (array_key_exists('operator', $condition) || array_key_exists('value', $condition)) {
+            $operator = $condition['operator'] ?? null;
+            $value = $condition['value'] ?? null;
+        } else {
+            // Indexed array form
+            if (count($condition) < 2) {
+                throw new DatabaseException("Invalid condition for {$column}: expected [operator, value] or [value, operator].");
+            }
+
+            // BETWEEN: ['BETWEEN', a, b]
+            if (count($condition) >= 3) {
+                $operator = $condition[0] ?? null;
+                $value = [$condition[1] ?? null, $condition[2] ?? null];
+            } else {
+                $a = $condition[0] ?? null;
+                $b = $condition[1] ?? null;
+
+                // Prefer operator-first, but allow swapped if we can identify an operator safely.
+                if (is_string($a) && $this->isAllowedOperator($a)) {
+                    $operator = $a;
+                    $value = $b;
+                } elseif (is_string($b) && $this->isAllowedOperator($b)) {
+                    $operator = $b;
+                    $value = $a;
+                } else {
+                    throw new DatabaseException(
+                        "Invalid operator for {$column}. Expected one of: " . implode(', ', $this->allowedOperators())
+                    );
+                }
+            }
+        }
+
+        if (!is_string($operator) || trim($operator) === '') {
+            throw new DatabaseException("Invalid operator for {$column}.");
+        }
+
+        // Case-insensitive operator input; always generate uppercase SQL keywords.
+        $op = strtoupper(trim($operator));
+        if (!$this->isAllowedOperator($op)) {
+            throw new DatabaseException("Disallowed operator for {$column}: {$operator}");
+        }
+
+        if ($op === 'BETWEEN') {
+            if (!is_array($value) || count($value) !== 2) {
+                throw new DatabaseException(
+                    "BETWEEN condition for {$column} must be ['BETWEEN', from, to] or ['operator'=>'BETWEEN','value'=>[from,to]]."
+                );
+            }
+
+            [$from, $to] = array_values($value);
+            $from = $this->normalizeIdConditionValue($column, $op, $from, $recordInstance);
+            $to = $this->normalizeIdConditionValue($column, $op, $to, $recordInstance);
+            return ["`{$column}` BETWEEN ? AND ?", [$from, $to]];
+        }
+
+        // LIKE / NOT LIKE: % is not eaten by parameterization; it works as expected.
+        $value = $this->normalizeIdConditionValue($column, $op, $value, $recordInstance);
+        return ["`{$column}` {$op} ?", [$value]];
+    }
+
+    /**
+     * @return string[]
+     */
+    private function allowedOperators(): array
+    {
+        return [
+            '=',
+            '!=',
+            '<>',
+            '>',
+            '<',
+            '>=',
+            '<=',
+            'LIKE',
+            'NOT LIKE',
+            'BETWEEN',
+        ];
+    }
+
+    private function isAllowedOperator(string $op): bool
+    {
+        return in_array(strtoupper(trim($op)), $this->allowedOperators(), true);
+    }
+
+    /**
+     * Special-case ID values so the DB boundary stays consistent.
+     * - UUID records store id in code as string UUID, and in DB as binary => uuidToBin() for conditions.
+     * - int records cast id conditions to int.
+     */
+    private function normalizeIdConditionValue(string $column, string $op, mixed $value, Record $recordInstance): mixed
+    {
+        if ($column !== 'id') {
+            return $value;
+        }
+
+        if ($recordInstance->useUuid) {
+            if ($value === null || $value === '') {
+                return $value;
+            }
+            return $this->db->uuidToBin((string)$value);
+        }
+
+        return (int)$value;
     }
 
     public function insert(Record $record): int|string
