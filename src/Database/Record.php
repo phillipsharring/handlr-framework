@@ -6,13 +6,18 @@ namespace Handlr\Database;
 
 use Ramsey\Uuid\Uuid;
 
-abstract class Record
+abstract class Record implements \JsonSerializable
 {
     // int or UUID (string)
     public int|string|null $id = null;
 
     protected array $data = [];
-    public bool $useUuid = true;
+    protected bool $useUuid = true;
+
+    public function usesUuid(): bool
+    {
+        return $this->useUuid;
+    }
 
     public function __construct(array $data = [])
     {
@@ -20,7 +25,7 @@ abstract class Record
         if (array_key_exists('id', $data) && $data['id'] !== null && $data['id'] !== '') {
             $this->id = $data['id'];
             unset($data['id']);
-        } elseif ($this->useUuid) {
+        } elseif ($this->usesUuid()) {
             // If UUIDs are enabled and no id is provided, assume this is a new record.
             $this->id = $this->generateUuid();
         }
@@ -35,6 +40,9 @@ abstract class Record
         if ($key === 'id') {
             return $this->id;
         }
+        if (property_exists($this, $key)) {
+            return $this->$key;
+        }
         return $this->data[$key] ?? null;
     }
 
@@ -42,6 +50,10 @@ abstract class Record
     {
         if ($key === 'id') {
             $this->id = $value;
+            return;
+        }
+        if (property_exists($this, $key)) {
+            $this->$key = $value;
             return;
         }
         $this->data[$key] = $value;
@@ -52,6 +64,9 @@ abstract class Record
         if ($key === 'id') {
             return isset($this->id);
         }
+        if (property_exists($this, $key)) {
+            return isset($this->$key);
+        }
         return isset($this->data[$key]);
     }
 
@@ -61,12 +76,21 @@ abstract class Record
             $this->id = null;
             return;
         }
+        if (property_exists($this, $key)) {
+            unset($this->$key);
+            return;
+        }
         unset($this->data[$key]);
     }
 
     public function toArray(): array
     {
         return ['id' => $this->id] + $this->data;
+    }
+
+    public function jsonSerialize(): array
+    {
+        return $this->toArray();
     }
 
     private function generateUuid(): string

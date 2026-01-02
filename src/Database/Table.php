@@ -30,7 +30,7 @@ abstract class Table
     {
         $recordInstance = $this->getRecordInstance();
 
-        if ($recordInstance->useUuid) {
+        if ($recordInstance->usesUuid()) {
             $id = $this->db->uuidToBin((string)$id);
         }
 
@@ -38,7 +38,7 @@ abstract class Table
         $stmt = $this->db->execute($sql, [$id]);
         $data = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if ($data && $recordInstance->useUuid) {
+        if ($data && $recordInstance->usesUuid()) {
             $data['id'] = $this->db->binToUuid($data['id']);
         }
 
@@ -114,9 +114,11 @@ abstract class Table
                 'count' => count($data),
                 'has_more_pages' => ($lastPage > 0) && ($page < $lastPage),
                 'next_page' => ($lastPage > 0 && $page < $lastPage) ? ($page + 1) : null,
-                'prev_page' => ($lastPage > 0 && $page > $lastPage)
-                    ? $lastPage
-                    : (($page > 1) ? ($page - 1) : null),
+                'prev_page' => ($lastPage === 0)
+                    ? null
+                    : (($page > $lastPage)
+                        ? $lastPage
+                        : (($page > 1) ? ($page - 1) : null)),
             ],
         ];
     }
@@ -160,7 +162,7 @@ abstract class Table
     private function hydrateRow(array $row, Record $recordInstance): Record
     {
         if (isset($row['id'])) {
-            if ($recordInstance->useUuid) {
+            if ($recordInstance->usesUuid()) {
                 $row['id'] = $this->db->binToUuid($row['id']);
             } else {
                 $row['id'] = (int)$row['id'];
@@ -316,7 +318,7 @@ abstract class Table
             return $value;
         }
 
-        if ($recordInstance->useUuid) {
+        if ($recordInstance->usesUuid()) {
             if ($value === null || $value === '') {
                 return $value;
             }
@@ -333,11 +335,11 @@ abstract class Table
         $data = $record->toArray();
 
         // If using auto-increment IDs, don't insert a null/empty id.
-        if (!$record->useUuid && (empty($data['id']) && $data['id'] !== 0)) {
+        if (!$record->usesUuid() && (empty($data['id']) && $data['id'] !== 0)) {
             unset($data['id']);
         }
 
-        if ($record->useUuid && isset($data['id']) && $data['id'] !== '') {
+        if ($record->usesUuid() && isset($data['id']) && $data['id'] !== '') {
             $data['id'] = $this->db->uuidToBin((string)$record->id);
         }
 
@@ -351,7 +353,7 @@ abstract class Table
         $sql = "INSERT INTO `$this->tableName` ($columns) VALUES ($placeholders)";
         $this->db->execute($sql, $values);
 
-        if ($record->useUuid) {
+        if ($record->usesUuid()) {
             $insertId = $record->id; // Use the provided/generated UUID as the ID
         } else {
             $insertId = $this->db->insertId();
@@ -377,7 +379,7 @@ abstract class Table
         $data = $record->toArray();
         unset($data['id']);
 
-        if ($record->useUuid) {
+        if ($record->usesUuid()) {
             $id = $this->db->uuidToBin((string)$id);
         }
 
@@ -408,7 +410,7 @@ abstract class Table
 
         $id = $record->id;
 
-        if ($record->useUuid) {
+        if ($record->usesUuid()) {
             $id = $this->db->uuidToBin((string)$id);
         }
 
