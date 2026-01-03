@@ -4,15 +4,18 @@ declare(strict_types=1);
 
 namespace Handlr\Database;
 
+use DateTime;
+use JsonSerializable;
 use Ramsey\Uuid\Uuid;
 
-abstract class Record implements \JsonSerializable
+abstract class Record implements JsonSerializable
 {
     // int or UUID (string)
     public int|string|null $id = null;
+    protected bool $useUuid = true;
 
     protected array $data = [];
-    protected bool $useUuid = true;
+    protected array $casts = [];
 
     public function usesUuid(): bool
     {
@@ -40,10 +43,27 @@ abstract class Record implements \JsonSerializable
         if ($key === 'id') {
             return $this->id;
         }
+
+        $value = null;
         if (property_exists($this, $key)) {
-            return $this->$key;
+            $value = $this->$key;
+        } elseif (isset($this->data[$key])) {
+            $value = $this->data[$key];
         }
-        return $this->data[$key] ?? null;
+
+        // Cast on read if a cast is declared. (Don't gate on truthiness; values like 0/false should still cast.)
+        if ($value !== null && isset($this->casts[$key])) {
+            $castType = $this->casts[$key];
+            $value = match ($castType) {
+                'date' => is_string($value) ? new DateTime($value) : null,
+                'int' => (int)$value,
+                'float' => (float)$value,
+                'bool' => (bool)$value,
+                'string' => (string)$value,
+            };
+        }
+
+        return $value ?? null;
     }
 
     public function __set(string $key, $value)
