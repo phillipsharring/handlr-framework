@@ -85,20 +85,4 @@ class Request
         // Add logic for checking authentication
         return isset($this->headers['Authorization']);
     }
-
-    /**
-     * @throws Exception
-     * @throws RequestException
-     */
-    public function asInput($class): HandlerInput
-    {
-        if (!class_exists($class)) {
-            throw new Exception("Input class $class does not exist.");
-        }
-
-        return new $class($this->getParsedBody(), new Validator(
-            new RuleValidatorFactory(),
-            new SanitizerFactory()
-        ));
-    }
 }

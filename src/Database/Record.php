@@ -35,6 +35,10 @@ abstract class Record implements JsonSerializable
 
         foreach ($data as $key => $value) {
             $this->data[$key] = $value;
+
+            if (property_exists($this, $key)) {
+                $this->$key = $value;
+            }
         }
     }
 
