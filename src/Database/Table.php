@@ -595,9 +595,6 @@ abstract class Table
     /**
      * Get UUID columns (excluding id) for a record instance.
      *
-     * We resolve via an optional Record::uuidColumns() API but keep this tolerant so
-     * the framework remains usable even if records don't opt into UUID column conversion.
-     *
      * @return string[]
      */
     private function uuidColumnsForRecord(Record $record): array
@@ -607,19 +604,13 @@ abstract class Table
             return $this->uuidColumnsCache[$cls];
         }
 
-        $cols = [];
-        if (method_exists($record, 'uuidColumns')) {
-            // Avoid direct method calls for better compatibility with some IDE indexers.
-            $maybe = call_user_func([$record, 'uuidColumns']);
-            if (is_array($maybe)) {
-                $cols = $maybe;
-            }
-        }
+        $cols = $record->uuidColumns();
 
         // Normalize: strings only, unique, preserve order.
         $out = [];
         foreach ($cols as $c) {
             if (!is_string($c)) continue;
+            $c = trim($c);
             if ($c === '') continue;
             if (in_array($c, $out, true)) continue;
             $out[] = $c;
