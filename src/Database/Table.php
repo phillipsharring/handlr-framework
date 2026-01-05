@@ -88,6 +88,23 @@ abstract class Table
 
         // 1) total count query
         $total = $this->countByWhere($whereSql, $params);
+        if ($total === 0) {
+            return [
+                'data' => [],
+                'meta' => [
+                    'current_page' => $page,
+                    'per_page' => $perPage,
+                    'total' => 0,
+                    'last_page' => 0,
+                    'from' => 0,
+                    'to' => 0,
+                    'count' => 0,
+                    'has_more_pages' => false,
+                    'next_page' => null,
+                    'prev_page' => null,
+                ],
+            ];
+        }
 
         // 2) page data query
         // NOTE: Many PDO drivers do not allow binding LIMIT/OFFSET placeholders reliably.
