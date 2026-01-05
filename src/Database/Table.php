@@ -50,13 +50,17 @@ abstract class Table
         return $this->findWhere($conditions)[0] ?? null;
     }
 
-    public function findWhere(array $conditions = []): array
+    public function findWhere(array $conditions = [], array $orderBy = []): array
     {
         $recordInstance = $this->getRecordInstance();
 
         [$whereSql, $params] = $this->buildWhere($conditions, $recordInstance);
+        $orderSql = $this->buildOrderBy($orderBy);
         $sql = "SELECT * FROM `$this->tableName`"
             . ($whereSql !== '' ? " WHERE {$whereSql}" : '');
+        if ($orderSql !== '') {
+            $sql .= " ORDER BY {$orderSql}";
+        }
 
         $stmt = $this->db->execute($sql, $params);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -69,7 +73,7 @@ abstract class Table
      *  - data: Record[]
      *  - meta: pagination metadata (counts/pages/range)
      */
-    public function paginate(array $conditions = [], int $page = 1, int $perPage = 25): array
+    public function paginate(array $conditions = [], int $page = 1, int $perPage = 25, array $orderBy = []): array
     {
         $recordInstance = $this->getRecordInstance();
 
@@ -79,6 +83,8 @@ abstract class Table
 
         [$whereSql, $params] = $this->buildWhere($conditions, $recordInstance);
         $wherePart = ($whereSql !== '' ? " WHERE {$whereSql}" : '');
+        $orderSql = $this->buildOrderBy($orderBy);
+        $orderPart = ($orderSql !== '' ? " ORDER BY {$orderSql}" : '');
 
         // 1) total count query
         $countSql = "SELECT COUNT(*) AS `total` FROM `$this->tableName`{$wherePart}";
@@ -87,7 +93,7 @@ abstract class Table
         // 2) page data query
         // NOTE: Many PDO drivers do not allow binding LIMIT/OFFSET placeholders reliably.
         // Since these are integers derived from arguments, embed them after clamping/casting.
-        $dataSql = "SELECT * FROM `$this->tableName`{$wherePart} LIMIT {$perPage} OFFSET {$offset}";
+        $dataSql = "SELECT * FROM `$this->tableName`{$wherePart}{$orderPart} LIMIT {$perPage} OFFSET {$offset}";
         $rows = $this->db->execute($dataSql, $params)->fetchAll(PDO::FETCH_ASSOC);
         $data = $this->hydrateRows($rows, $recordInstance);
 
@@ -121,6 +127,80 @@ abstract class Table
                         : (($page > 1) ? ($page - 1) : null)),
             ],
         ];
+    }
+
+    /**
+     * @param array<int,array{0:string,1?:string}> $orderBy E.g. [['name','ASC'], ['users.created_at','desc']]
+     * @throws DatabaseException
+     */
+    private function buildOrderBy(array $orderBy): string
+    {
+        if ($orderBy === []) {
+            return '';
+        }
+
+        $parts = [];
+        foreach ($orderBy as $idx => $item) {
+            if (!is_array($item) || !isset($item[0]) || !is_string($item[0])) {
+                throw new DatabaseException("Invalid orderBy item at index {$idx}. Expected: [column, direction?].");
+            }
+
+            $column = $this->normalizeOrderByColumn($item[0]);
+            $direction = isset($item[1]) ? strtoupper(trim((string)$item[1])) : 'ASC';
+            if ($direction === '') {
+                $direction = 'ASC';
+            }
+            if (!in_array($direction, ['ASC', 'DESC'], true)) {
+                throw new DatabaseException("Invalid ORDER BY direction for {$item[0]}: {$direction}");
+            }
+
+            $parts[] = "{$column} {$direction}";
+        }
+
+        return implode(', ', $parts);
+    }
+
+    /**
+     * Normalizes:
+     * - some_column => `some_column`
+     * - some_table.some_column => `some_table`.`some_column`
+     * - `some_table`.some_column => `some_table`.`some_column`
+     * - some_table.`some_column` => `some_table`.`some_column`
+     *
+     * @throws DatabaseException
+     */
+    private function normalizeOrderByColumn(string $raw): string
+    {
+        $s = trim($raw);
+        if ($s === '') {
+            throw new DatabaseException('ORDER BY column cannot be empty.');
+        }
+
+        // Strip any existing backticks; we re-apply consistently.
+        $s = str_replace('`', '', $s);
+
+        $segments = explode('.', $s);
+        if (count($segments) === 1) {
+            $col = $segments[0];
+            $this->assertSqlIdentifier($col, "ORDER BY column {$raw}");
+            return "`{$col}`";
+        }
+
+        if (count($segments) === 2) {
+            [$a, $b] = $segments;
+            $this->assertSqlIdentifier($a, "ORDER BY column {$raw}");
+            $this->assertSqlIdentifier($b, "ORDER BY column {$raw}");
+            return "`{$a}`.`{$b}`";
+        }
+
+        throw new DatabaseException("Invalid ORDER BY column format: {$raw}");
+    }
+
+    private function assertSqlIdentifier(string $id, string $context): void
+    {
+        if (!preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $id)) {
+            throw new DatabaseException("Invalid SQL identifier in {$context}: {$id}");
+        }
     }
 
     /**
