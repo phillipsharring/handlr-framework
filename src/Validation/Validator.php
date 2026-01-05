@@ -22,6 +22,7 @@ class Validator
     ];
     private const SANITIZER_SUBSTITUTIONS = [
         'uuid'        => 'string',
+        'uuid7'       => 'string',
         'gcsFilename' => 'string',
     ];
     private const VALID_DEFAULT_TYPES = ['int', 'string', 'bool', 'float', 'array'];
@@ -63,7 +64,7 @@ class Validator
         $isNullable = in_array('nullable', $ruleSet, true);
 
         if ($isNullable) {
-            $default = $this->getDefaultValue($field,$ruleSet);
+            $default = $this->getDefaultValue($field, $ruleSet);
 
             if (empty($value) && $value !== '0' && $value !== 0) {
                 $this->sanitized[$field] = $default ? $this->castDefaultValue($default, $ruleSet) : null;
@@ -123,8 +124,8 @@ class Validator
             'int'    => is_numeric($defaultValue) ? (int) $defaultValue : null,
             'float'  => is_numeric($defaultValue) ? (float) $defaultValue : null,
             'bool'   => in_array($defaultValue, ['true', 'false', '1', '0', 'on', 'off'], true)
-                        ? filter_var($defaultValue, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE)
-                        : null,
+                ? filter_var($defaultValue, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE)
+                : null,
             'array'  => explode(',', $defaultValue),
             default  => (string) $defaultValue,
         };

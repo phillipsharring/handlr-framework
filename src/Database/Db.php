@@ -8,6 +8,7 @@ use Handlr\Config\Config;
 use PDO;
 use PDOStatement;
 use PDOException;
+use Ramsey\Uuid\Uuid;
 
 class Db
 {
@@ -100,13 +101,13 @@ class Db
 
     public function uuidToBin(string $uuid): string
     {
-        return $this->execute("SELECT UUID_TO_BIN(:uuid) AS `bin`", [':uuid' => $uuid])
-            ->fetch(PDO::FETCH_COLUMN);
+        // Return raw 16-byte binary string for storage in BINARY(16) columns.
+        return Uuid::fromString($uuid)->getBytes();
     }
 
     public function binToUuid(string $bin): string
     {
-        return $this->execute("SELECT BIN_TO_UUID(:bin) AS `uuid`", [':bin' => $bin])
-            ->fetch(PDO::FETCH_COLUMN);
+        // Accept raw 16-byte binary string from BINARY(16) columns.
+        return Uuid::fromBytes($bin)->toString();
     }
 }

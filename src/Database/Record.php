@@ -138,6 +138,7 @@ abstract class Record implements JsonSerializable
 
     private function generateUuid(): string
     {
-        return Uuid::uuid4()->toString();
+        // UUIDv7 is time-ordered (better index locality than v4) while remaining globally unique.
+        return Uuid::uuid7()->toString();
     }
 }
