@@ -52,12 +52,12 @@ abstract class Table
         return $data ? new $this->recordClass($data) : null;
     }
 
-    public function findFirst(array $conditions): ?Record
+    public function findFirst(array $conditions, array $orderBy = []): ?Record
     {
-        return $this->findWhere($conditions)[0] ?? null;
+        return $this->findWhere($conditions, $orderBy, 1)[0] ?? null;
     }
 
-    public function findWhere(array $conditions = [], array $orderBy = []): array
+    public function findWhere(array $conditions = [], array $orderBy = [], ?int $limit = null): array
     {
         $recordInstance = $this->getRecordInstance();
 
@@ -67,6 +67,9 @@ abstract class Table
             . ($whereSql !== '' ? " WHERE {$whereSql}" : '');
         if ($orderSql !== '') {
             $sql .= " ORDER BY {$orderSql}";
+        }
+        if ($limit !== null && $limit > 0) {
+            $sql .= " LIMIT {$limit} OFFSET 0";
         }
 
         $stmt = $this->db->execute($sql, $params);
