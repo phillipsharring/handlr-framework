@@ -14,12 +14,31 @@ abstract class Record implements JsonSerializable
     public int|string|null $id = null;
     protected bool $useUuid = true;
 
+    /**
+     * Columns (other than `id`) that should be treated as UUIDs in code (string)
+     * and stored in the DB as BINARY(16).
+     *
+     * Example in a child record:
+     *   protected array $uuidColumns = ['user_id', 'series_id'];
+     *
+     * @var string[]
+     */
+    protected array $uuidColumns = [];
+
     protected array $data = [];
     protected array $casts = [];
 
     public function usesUuid(): bool
     {
         return $this->useUuid;
+    }
+
+    /**
+     * @return string[]
+     */
+    public function uuidColumns(): array
+    {
+        return $this->uuidColumns;
     }
 
     public function __construct(array $data = [])

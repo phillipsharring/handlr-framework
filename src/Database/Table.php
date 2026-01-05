@@ -13,6 +13,13 @@ abstract class Table
     protected string $recordClass;
 
     /**
+     * Cache UUID column lists per record class.
+     *
+     * @var array<class-string, string[]>
+     */
+    private array $uuidColumnsCache = [];
+
+    /**
      * @throws DatabaseException
      */
     public function __construct(Db $db)
@@ -288,6 +295,16 @@ abstract class Table
             $row['id'] = 0;
         }
 
+        // Convert additional UUID columns (e.g. user_id) from BINARY(16) -> UUID string.
+        foreach ($this->uuidColumnsForRecord($recordInstance) as $col) {
+            if ($col === 'id') continue;
+            if (!array_key_exists($col, $row)) continue;
+            if ($row[$col] === null || $row[$col] === '') continue;
+            if (is_string($row[$col])) {
+                $row[$col] = $this->db->binToUuid($row[$col]);
+            }
+        }
+
         return new $this->recordClass($row);
     }
 
@@ -445,11 +462,39 @@ abstract class Table
         return (int)$value;
     }
 
+    /**
+     * Convert configured UUID columns (other than `id`) from UUID string -> BINARY(16) for DB storage.
+     *
+     * @param array<string,mixed> $data
+     * @return array<string,mixed>
+     */
+    private function convertUuidColumnsForDb(Record $record, array $data): array
+    {
+        foreach ($this->uuidColumnsForRecord($record) as $col) {
+            if ($col === 'id') continue;
+            if (!array_key_exists($col, $data)) continue;
+            $v = $data[$col];
+            if ($v === null || $v === '') continue;
+            if (
+                is_string($v)
+                && preg_match(
+                    '/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/',
+                    $v
+                )
+            ) {
+                $data[$col] = $this->db->uuidToBin($v);
+            }
+        }
+        return $data;
+    }
+
     public function insert(Record $record): int|string
     {
         unset($record->created_at);
 
         $data = $record->toArray();
+
+        $data = $this->convertUuidColumnsForDb($record, $data);
 
         // If using auto-increment IDs, don't insert a null/empty id.
         if (!$record->usesUuid() && (empty($data['id']) && $data['id'] !== 0)) {
@@ -495,6 +540,8 @@ abstract class Table
         // id is not updated
         $data = $record->toArray();
         unset($data['id']);
+
+        $data = $this->convertUuidColumnsForDb($record, $data);
 
         if ($record->usesUuid()) {
             $id = $this->db->uuidToBin((string)$id);
@@ -543,5 +590,41 @@ abstract class Table
     private function getRecordInstance(): Record
     {
         return new $this->recordClass();
+    }
+
+    /**
+     * Get UUID columns (excluding id) for a record instance.
+     *
+     * We resolve via an optional Record::uuidColumns() API but keep this tolerant so
+     * the framework remains usable even if records don't opt into UUID column conversion.
+     *
+     * @return string[]
+     */
+    private function uuidColumnsForRecord(Record $record): array
+    {
+        $cls = $record::class;
+        if (isset($this->uuidColumnsCache[$cls])) {
+            return $this->uuidColumnsCache[$cls];
+        }
+
+        $cols = [];
+        if (method_exists($record, 'uuidColumns')) {
+            // Avoid direct method calls for better compatibility with some IDE indexers.
+            $maybe = call_user_func([$record, 'uuidColumns']);
+            if (is_array($maybe)) {
+                $cols = $maybe;
+            }
+        }
+
+        // Normalize: strings only, unique, preserve order.
+        $out = [];
+        foreach ($cols as $c) {
+            if (!is_string($c)) continue;
+            if ($c === '') continue;
+            if (in_array($c, $out, true)) continue;
+            $out[] = $c;
+        }
+
+        return $this->uuidColumnsCache[$cls] = $out;
     }
 }
