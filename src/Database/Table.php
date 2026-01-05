@@ -87,8 +87,7 @@ abstract class Table
         $orderPart = ($orderSql !== '' ? " ORDER BY {$orderSql}" : '');
 
         // 1) total count query
-        $countSql = "SELECT COUNT(*) AS `total` FROM `$this->tableName`{$wherePart}";
-        $total = (int)$this->db->execute($countSql, $params)->fetchColumn();
+        $total = $this->countByWhere($whereSql, $params);
 
         // 2) page data query
         // NOTE: Many PDO drivers do not allow binding LIMIT/OFFSET placeholders reliably.
@@ -127,6 +126,27 @@ abstract class Table
                         : (($page > 1) ? ($page - 1) : null)),
             ],
         ];
+    }
+
+    /**
+     * Count records matching conditions (same condition syntax as findWhere/paginate).
+     */
+    public function count(array $conditions = []): int
+    {
+        $recordInstance = $this->getRecordInstance();
+        [$whereSql, $params] = $this->buildWhere($conditions, $recordInstance);
+        return $this->countByWhere($whereSql, $params);
+    }
+
+    /**
+     * @param string $whereSql SQL without the leading "WHERE"
+     * @param array $params Prepared statement params
+     */
+    private function countByWhere(string $whereSql, array $params): int
+    {
+        $wherePart = ($whereSql !== '' ? " WHERE {$whereSql}" : '');
+        $countSql = "SELECT COUNT(*) AS `total` FROM `$this->tableName`{$wherePart}";
+        return (int)$this->db->execute($countSql, $params)->fetchColumn();
     }
 
     /**
