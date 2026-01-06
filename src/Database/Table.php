@@ -52,18 +52,19 @@ abstract class Table
         return $data ? new $this->recordClass($data) : null;
     }
 
-    public function findFirst(array $conditions, array $orderBy = []): ?Record
+    public function findFirst(array $columns = [], array $conditions = [], array $orderBy = []): ?Record
     {
-        return $this->findWhere($conditions, $orderBy, 1)[0] ?? null;
+        return $this->findWhere($columns, $conditions, $orderBy, 1)[0] ?? null;
     }
 
-    public function findWhere(array $conditions = [], array $orderBy = [], ?int $limit = null): array
+    public function findWhere(array $columns = [], array $conditions = [], array $orderBy = [], ?int $limit = null): array
     {
         $recordInstance = $this->getRecordInstance();
 
+        $columnsSql = $this->buildSelectColumns($columns);
         [$whereSql, $params] = $this->buildWhere($conditions, $recordInstance);
         $orderSql = $this->buildOrderBy($orderBy);
-        $sql = "SELECT * FROM `$this->tableName`"
+        $sql = "SELECT {$columnsSql} FROM `$this->tableName`"
             . ($whereSql !== '' ? " WHERE {$whereSql}" : '');
         if ($orderSql !== '') {
             $sql .= " ORDER BY {$orderSql}";
@@ -83,7 +84,7 @@ abstract class Table
      *  - data: Record[]
      *  - meta: pagination metadata (counts/pages/range)
      */
-    public function paginate(array $conditions = [], int $page = 1, int $perPage = 25, array $orderBy = []): array
+    public function paginate(array $columns = [], array $conditions = [], int $page = 1, int $perPage = 25, array $orderBy = []): array
     {
         $recordInstance = $this->getRecordInstance();
 
@@ -91,6 +92,7 @@ abstract class Table
         $perPage = max(1, $perPage);
         $offset = ($page - 1) * $perPage;
 
+        $columnsSql = $this->buildSelectColumns($columns);
         [$whereSql, $params] = $this->buildWhere($conditions, $recordInstance);
         $wherePart = ($whereSql !== '' ? " WHERE {$whereSql}" : '');
         $orderSql = $this->buildOrderBy($orderBy);
@@ -119,7 +121,7 @@ abstract class Table
         // 2) page data query
         // NOTE: Many PDO drivers do not allow binding LIMIT/OFFSET placeholders reliably.
         // Since these are integers derived from arguments, embed them after clamping/casting.
-        $dataSql = "SELECT * FROM `$this->tableName`{$wherePart}{$orderPart} LIMIT {$perPage} OFFSET {$offset}";
+        $dataSql = "SELECT {$columnsSql} FROM `$this->tableName`{$wherePart}{$orderPart} LIMIT {$perPage} OFFSET {$offset}";
         $rows = $this->db->execute($dataSql, $params)->fetchAll(PDO::FETCH_ASSOC);
         $data = $this->hydrateRows($rows, $recordInstance);
 
@@ -174,6 +176,65 @@ abstract class Table
         $wherePart = ($whereSql !== '' ? " WHERE {$whereSql}" : '');
         $countSql = "SELECT COUNT(*) AS `total` FROM `$this->tableName`{$wherePart}";
         return (int)$this->db->execute($countSql, $params)->fetchColumn();
+    }
+
+    /**
+     * @param string[] $columns E.g. ['id', 'name', 'email']
+     * @throws DatabaseException
+     */
+    private function buildSelectColumns(array $columns): string
+    {
+        if ($columns === []) {
+            return '*';
+        }
+
+        $parts = [];
+        foreach ($columns as $idx => $column) {
+            if (!is_string($column)) {
+                throw new DatabaseException("Invalid column at index {$idx}. Expected a string.");
+            }
+
+            $normalized = $this->normalizeSelectColumn($column);
+            $parts[] = $normalized;
+        }
+
+        return implode(', ', $parts);
+    }
+
+    /**
+     * Normalizes:
+     * - some_column => `some_column`
+     * - some_table.some_column => `some_table`.`some_column`
+     * - `some_table`.some_column => `some_table`.`some_column`
+     * - some_table.`some_column` => `some_table`.`some_column`
+     *
+     * @throws DatabaseException
+     */
+    private function normalizeSelectColumn(string $raw): string
+    {
+        $s = trim($raw);
+        if ($s === '') {
+            throw new DatabaseException('SELECT column cannot be empty.');
+        }
+
+        // Strip any existing backticks; we re-apply consistently.
+        $s = str_replace('`', '', $s);
+
+        $segments = explode('.', $s);
+        if (count($segments) === 1) {
+            $col = $segments[0];
+            $this->assertSqlIdentifier($col, "SELECT column {$raw}");
+            return "`{$col}`";
+        }
+
+        if (count($segments) === 2) {
+            [$a, $b] = $segments;
+            $this->assertSqlIdentifier($a, "SELECT column {$raw}");
+            $this->assertSqlIdentifier($b, "SELECT column {$raw}");
+            return "`{$a}`.`{$b}`";
+        }
+
+        throw new DatabaseException("Invalid SELECT column format: {$raw}");
     }
 
     /**
