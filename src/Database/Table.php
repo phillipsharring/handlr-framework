@@ -554,9 +554,10 @@ abstract class Table
 
     public function insert(Record $record): int|string
     {
-        unset($record->created_at);
-
         $data = $record->toArray();
+
+        // Remove created_at from insert data to let the database default handle it
+        unset($data['created_at']);
 
         $data = $this->convertUuidColumnsForDb($record, $data);
 
@@ -594,8 +595,6 @@ abstract class Table
      */
     public function update(Record $record): int
     {
-        unset($record->updated_at);
-
         $id = $record->id;
         if ($id === null || $id === '') {
             throw new DatabaseException('Cannot update a record without an ID.');
@@ -604,6 +603,9 @@ abstract class Table
         // id is not updated
         $data = $record->toArray();
         unset($data['id']);
+
+        // Remove updated_at from update data to let the database default handle it
+        unset($data['updated_at']);
 
         $data = $this->convertUuidColumnsForDb($record, $data);
 
