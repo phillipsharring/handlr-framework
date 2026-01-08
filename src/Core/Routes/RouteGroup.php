@@ -12,7 +12,8 @@ final class RouteGroup
     public function __construct(
         private readonly Router $router,
         string $prefix,
-        array $pipes = []
+        array $pipes = [],
+        private readonly ?RouteGroup $parent = null
     ) {
         $this->prefix = $this->router->normalizePath($prefix);
         $this->pipes = $pipes;
@@ -22,7 +23,16 @@ final class RouteGroup
     {
         $prefix = $this->joinPaths($this->prefix, $prefix);
         $pipes = array_merge($this->pipes, $pipes);
-        return new self($this->router, $prefix, $pipes);
+        return new self($this->router, $prefix, $pipes, $this);
+    }
+
+    /**
+     * End the current route group and return to the parent group.
+     * Returns the parent RouteGroup if one exists, otherwise returns $this.
+     */
+    public function end(): self
+    {
+        return $this->parent ?? $this;
     }
 
     public function get(string $path, array $pipes): self
