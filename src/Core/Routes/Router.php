@@ -27,9 +27,31 @@ class Router
         $path = parse_url($rawUri, PHP_URL_PATH) ?: '/';
         $path = $this->normalizePath($path);
 
-        if (!isset($this->routes[$method][$path])) {
+        // Find matching route
+        $matchedRoute = null;
+        $params = [];
+
+        if (isset($this->routes[$method])) {
+            foreach ($this->routes[$method] as $route) {
+                if (preg_match($route['regex'], $path, $matches)) {
+                    $matchedRoute = $route;
+                    // Extract named parameters
+                    foreach ($route['params'] as $paramName) {
+                        if (isset($matches[$paramName])) {
+                            $params[$paramName] = $matches[$paramName];
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+
+        if ($matchedRoute === null) {
             return $response->withStatus(Response::HTTP_NOT_FOUND)->withBody('404 File Not Found');
         }
+
+        // Set route params on request for easy access
+        $request->setRouteParams($params);
 
         $pipeline = new Pipeline();
 
@@ -37,20 +59,31 @@ class Router
             $pipeline->lay($pipe);
         }
 
-        foreach ($this->routes[$method][$path] as $pipeClass) {
+        foreach ($matchedRoute['pipes'] as $pipeClass) {
             $pipe = (is_string($pipeClass))
                 ? $this->container->get($pipeClass)
                 : $pipeClass;
             $pipeline->lay($pipe);
         }
 
-        return $pipeline->run($request, $response, []);
+        return $pipeline->run($request, $response, $params);
     }
 
     private function add(string $method, string $path, array $pipes): void
     {
         $path = $this->normalizePath($path);
-        $this->routes[$method][$path] = $pipes;
+        $compiled = $this->compilePattern($path);
+
+        if (!isset($this->routes[$method])) {
+            $this->routes[$method] = [];
+        }
+
+        $this->routes[$method][] = [
+            'pattern' => $path,
+            'regex' => $compiled['regex'],
+            'params' => $compiled['params'],
+            'pipes' => $pipes,
+        ];
     }
 
     public function get(string $path, array $pipes): self
@@ -119,5 +152,35 @@ class Router
         }
 
         return $path === '' ? '/' : $path;
+    }
+
+    /**
+     * Compile a route pattern into a regex and extract parameter names.
+     * Supports patterns like: /api/series/{seriesId} or /api/series/{seriesId:\d+}
+     */
+    private function compilePattern(string $pattern): array
+    {
+        $params = [];
+
+        // Replace {param} or {param:regex} with named capture groups
+        // Supports patterns with nested braces like {id:[0-9a-f-]{36}}
+        $regex = preg_replace_callback(
+            '/\{(\w+)(?::([^{}]+(?:\{[^}]*\})*))?\}/',
+            function ($matches) use (&$params) {
+                $paramName = $matches[1];
+                $paramPattern = $matches[2] ?? '[^/]+'; // Default to match any non-slash chars
+                $params[] = $paramName;
+                return "(?<{$paramName}>{$paramPattern})";
+            },
+            $pattern
+        );
+
+        // Escape forward slashes and make it an exact match
+        $regex = '#^' . str_replace('/', '\/', $regex) . '$#';
+
+        return [
+            'regex' => $regex,
+            'params' => $params,
+        ];
     }
 }

@@ -13,6 +13,8 @@ use JsonException;
 
 class Request
 {
+    private array $routeParams = [];
+
     public function __construct(
         private array $query,
         private array $post,
@@ -89,5 +91,20 @@ class Request
     {
         // Add logic for checking authentication
         return isset($this->headers['Authorization']);
+    }
+
+    public function setRouteParams(array $params): void
+    {
+        $this->routeParams = $params;
+    }
+
+    public function getRouteParams(): array
+    {
+        return $this->routeParams;
+    }
+
+    public function getRouteParam(string $key, $default = null)
+    {
+        return $this->routeParams[$key] ?? $default;
     }
 }
