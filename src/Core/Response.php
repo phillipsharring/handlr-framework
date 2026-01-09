@@ -48,7 +48,7 @@ class Response
             ->withStatus($statusCode);
     }
 
-    public function withJson(array $data, int $statusCode = self::HTTP_OK): self
+    public function withJson(array $data, ?int $statusCode = null): self
     {
         try {
             $json = json_encode($data, JSON_THROW_ON_ERROR);
@@ -61,10 +61,16 @@ class Response
                 ->withStatus(self::HTTP_SERVER_ERROR);
         }
 
-        return $this
+        $response = $this
             ->withHeader('Content-Type', 'application/json')
-            ->withBody($json)
-            ->withStatus($statusCode);
+            ->withBody($json);
+
+        // Only set status if explicitly provided; otherwise preserve current status
+        if ($statusCode !== null) {
+            $response = $response->withStatus($statusCode);
+        }
+
+        return $response;
     }
 
     public function withRedirect(string $url, int $statusCode = self::HTTP_TEMPORARY_REDIRECT): self
