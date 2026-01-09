@@ -148,8 +148,14 @@ class Validator
         $ruleArgs = [];
         if ($argsString) {
             foreach (explode(',', $argsString) as $argString) {
-                [$key, $value] = explode(':', $argString);
-                $ruleArgs[$key] = $value ?? null;
+                // Support both key:value and standalone flags (e.g., 'trim')
+                if (str_contains($argString, ':')) {
+                    [$key, $value] = explode(':', $argString, 2);
+                    $ruleArgs[$key] = $value;
+                } else {
+                    // No colon means it's a boolean flag
+                    $ruleArgs[$argString] = true;
+                }
             }
         }
 
