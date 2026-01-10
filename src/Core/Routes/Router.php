@@ -156,19 +156,26 @@ class Router
 
     /**
      * Compile a route pattern into a regex and extract parameter names.
-     * Supports patterns like: /api/series/{seriesId} or /api/series/{seriesId:\d+}
+     * Supports patterns like: /api/series/{id:uuid} or /api/series/{id:\d+}
+     *
+     * Type aliases:
+     * - {id:int} -> matches integers (\d+)
+     * - {id:uuid} -> matches UUIDs ([0-9a-f-]{36})
+     * - {slug:slug} -> matches slugs ([a-z0-9-]+)
+     * - {id} -> matches anything except / ([^/]+)
+     * - {id:custom} -> custom regex passed through as-is
      */
     private function compilePattern(string $pattern): array
     {
         $params = [];
 
-        // Replace {param} or {param:regex} with named capture groups
-        // Supports patterns with nested braces like {id:[0-9a-f-]{36}}
+        // Replace {param} or {param:type} with named capture groups
         $regex = preg_replace_callback(
             '/\{(\w+)(?::([^{}]+(?:\{[^}]*\})*))?\}/',
             function ($matches) use (&$params) {
                 $paramName = $matches[1];
-                $paramPattern = $matches[2] ?? '[^/]+'; // Default to match any non-slash chars
+                $paramType = $matches[2] ?? null;
+                $paramPattern = $this->getTypePattern($paramType);
                 $params[] = $paramName;
                 return "(?<{$paramName}>{$paramPattern})";
             },
@@ -182,5 +189,23 @@ class Router
             'regex' => $regex,
             'params' => $params,
         ];
+    }
+
+    /**
+     * Map type aliases to regex patterns.
+     * Returns the regex pattern for a given type, or the type itself if no alias exists.
+     */
+    private function getTypePattern(?string $type): string
+    {
+        if ($type === null) {
+            return '[^/]+'; // Default: match anything except /
+        }
+
+        return match($type) {
+            'int' => '\d+',
+            'uuid' => '[0-9a-f-]{36}',
+            'slug' => '[a-z0-9-]+',
+            default => $type  // Pass through custom regex as-is
+        };
     }
 }
