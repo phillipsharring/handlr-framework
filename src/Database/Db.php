@@ -10,7 +10,7 @@ use PDOStatement;
 use PDOException;
 use Ramsey\Uuid\Uuid;
 
-class Db
+class Db implements DbInterface
 {
     private PDO $connection;
     private ?PDOStatement $lastStatement = null;
