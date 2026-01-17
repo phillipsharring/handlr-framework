@@ -591,6 +591,10 @@ abstract class Table
     private function normalizeIdConditionValue(string $column, string $op, mixed $value, Record $recordInstance): mixed
     {
         if ($column !== 'id') {
+            $uuidCols = $this->uuidColumnsForRecord($recordInstance);
+            if (in_array($column, $uuidCols, true)) {
+                return $this->db->uuidToBin($value);
+            }
             return $value;
         }
 

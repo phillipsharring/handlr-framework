@@ -44,14 +44,18 @@ class {$className} extends BaseMigration
 {
     public function up(): void
     {
-        // Write SQL here
-        // \$this->exec("...");
+        $sql = <<<'SQL'
+            CREATE TABLE IF NOT EXISTS `` (
+            ) ENGINE=InnoDB
+            DEFAULT CHARSET=utf8mb4
+            COLLATE=utf8mb4_0900_ai_ci;
+        SQL;
+        $this->exec($sql);
     }
 
     public function down(): void
     {
-        // Revert the change
-        // \$this->exec("...");
+        $this->exec('DROP TABLE IF EXISTS ``;');
     }
 }
 
