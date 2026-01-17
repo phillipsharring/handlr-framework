@@ -20,16 +20,23 @@
     "vlucas/phpdotenv": "^5.6",
     "ramsey/uuid": "^4.7",
     "adbario/php-dot-notation": "^3.3",
-    "symfony/console": "^8.0",
-    "symfony/filesystem": "^8.0",
-    "symfony/process": "^8.0"
+    "symfony/console": "^7.0",
+    "symfony/filesystem": "^7.0",
+    "symfony/process": "^7.0"
   },
   "require-dev": {
+    "pestphp/pest": "^4.3",
+    "pestphp/pest-plugin": "^4.0",
     "roave/security-advisories": "dev-latest"
   },
   "autoload": {
     "psr-4": {
       "Handlr\\": "src/"
+    }
+  },
+  "config": {
+    "allow-plugins": {
+      "pestphp/pest-plugin": true
     }
   }
 }
