@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Handlr\Database;
 
+use InvalidArgumentException;
 use PDO;
+use RuntimeException;
 
 abstract class Table
 {
@@ -552,42 +554,224 @@ abstract class Table
         return $data;
     }
 
-    public function insert(Record $record): int|string
+    /**
+     * Insert a new record into the database.
+     *
+     * @return int|string Inserted record ID (int for auto-increment, string for UUID)
+     */
+    public function insert($record)
     {
+        if (!is_object($record)) {
+            throw new InvalidArgumentException('record must be an object');
+        }
+
+        $prepared = $this->prepareInsertData($record);
+
+        // Determine columns for single-row insert
+        $columns = $this->buildColumnsUnion([$prepared]);
+        $firstUsesUuid = method_exists($record, 'usesUuid') ? $record->usesUuid() : false;
+        $anyNonEmptyId = $this->detectAnyNonEmptyId([$prepared]);
+
+        $columns = $this->maybeIncludeIdColumn($columns, $firstUsesUuid, $anyNonEmptyId);
+
+        $normalized = $this->normalizeRowsToColumns([$prepared], $columns);
+        $quotedCols = $this->quoteIdentifiers($columns);
+        $sql = $this->buildInsertSql($this->quotedTableName(), $quotedCols, $normalized['placeholders']);
+
+        $this->db->execute($sql, $normalized['values']);
+
+        // For non-UUID records, preserve existing behavior: set insertId when appropriate
+        if (!$firstUsesUuid && !$anyNonEmptyId) {
+            $insertId = $this->db->insertId();
+            if ($insertId) {
+                $record->id = $insertId;
+            }
+        }
+
+        // UUID records already have string id on $record from prepareInsertData
+        return $record;
+    }
+
+    /**
+     * Insert multiple records in a single query.
+     *
+     * @param array $records
+     * @return array
+     *
+     * @throws InvalidArgumentException
+     * @throws RuntimeException
+     */
+    public function insertMany(array $records): array
+    {
+        $expectedClass = $this->validateRecordsArray($records);
+
+        // Prepare rows
+        $preparedRows = [];
+        foreach ($records as $record) {
+            $preparedRows[] = $this->prepareInsertData($record);
+        }
+
+        // Build columns union and determine id inclusion rules
+        $columns = $this->buildColumnsUnion($preparedRows);
+        $firstUsesUuid = method_exists($records[0], 'usesUuid') ? $records[0]->usesUuid() : false;
+        $anyNonEmptyId = $this->detectAnyNonEmptyId($preparedRows);
+
+        $columns = $this->maybeIncludeIdColumn($columns, $firstUsesUuid, $anyNonEmptyId);
+
+        // Normalize and build SQL
+        $normalized = $this->normalizeRowsToColumns($preparedRows, $columns);
+        $quotedCols = $this->quoteIdentifiers($columns);
+        $sql = $this->buildInsertSql($this->quotedTableName(), $quotedCols, $normalized['placeholders']);
+
+        // Execute (per user request: no transaction, no auto-increment id collection)
+        $this->db->execute($sql, $normalized['values']);
+
+        // Ensure UUID records keep their string ids (prepareInsertData did that)
+        return $records;
+    }
+
+    // --- Helpers added below ---
+
+    private function prepareInsertData($record): array
+    {
+        // Convert to array and remove created_at (preserve behavior from insert)
         $data = $record->toArray();
+        if (array_key_exists('created_at', $data)) {
+            unset($data['created_at']);
+        }
 
-        // Remove created_at from insert data to let the database default handle it
-        unset($data['created_at']);
-
+        // Let existing method convert UUID columns to DB representation
         $data = $this->convertUuidColumnsForDb($record, $data);
 
-        // If using auto-increment IDs, don't insert a null/empty id.
-        if (!$record->usesUuid() && (empty($data['id']) && $data['id'] !== 0)) {
-            unset($data['id']);
+        // If this record uses UUIDs, ensure the record has a string id and store binary for DB
+        if (method_exists($record, 'usesUuid') && $record->usesUuid()) {
+            $stringId = (string)$record->id;
+            $data['id'] = $this->db->uuidToBin($stringId);
+            // keep the record id as string for caller
+            $record->id = $stringId;
         }
 
-        if ($record->usesUuid() && isset($data['id']) && $data['id'] !== '') {
-            $data['id'] = $this->db->uuidToBin((string)$record->id);
+        return $data;
+    }
+
+    private function shouldOmitAutoIncrementId($record, array $data): bool
+    {
+        if (method_exists($record, 'usesUuid') && $record->usesUuid()) {
+            return false;
         }
 
-        $columns = implode(
-            ',',
-            array_map(static fn($column) => "`$column`", array_keys($data))
-        );
-        $placeholders = implode(',', array_fill(0, count($data), '?'));
-        $values = array_values($data);
-
-        $sql = "INSERT INTO `$this->tableName` ($columns) VALUES ($placeholders)";
-        $this->db->execute($sql, $values);
-
-        if ($record->usesUuid()) {
-            $insertId = $record->id; // Use the provided/generated UUID as the ID
-        } else {
-            $insertId = $this->db->insertId();
-            $record->id = $insertId; // Set the new ID on the Record object
+        // Match previous semantics: treat empty id (except 0) as "omit"
+        if (!array_key_exists('id', $data)) {
+            return true;
         }
 
-        return $insertId;
+        $val = $data['id'];
+        return empty($val) && $val !== 0 && $val !== '0';
+    }
+
+    private function buildColumnsUnion(array $rows): array
+    {
+        $columns = [];
+        foreach ($rows as $row) {
+            foreach (array_keys($row) as $col) {
+                if (!in_array($col, $columns, true)) {
+                    $columns[] = $col;
+                }
+            }
+        }
+        return $columns;
+    }
+
+    private function detectAnyNonEmptyId(array $rows): bool
+    {
+        foreach ($rows as $row) {
+            if (array_key_exists('id', $row) && $row['id'] !== null && $row['id'] !== '') {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private function maybeIncludeIdColumn(array $columns, bool $firstUsesUuid, bool $anyNonEmptyId): array
+    {
+        if (!$firstUsesUuid && !$anyNonEmptyId) {
+            // Omit id to allow auto-increment
+            $columns = array_values(array_filter($columns, function ($c) {
+                return $c !== 'id';
+            }));
+            return $columns;
+        }
+
+        // Ensure id is present (for UUIDs or when explicit ids were provided)
+        if (!in_array('id', $columns, true)) {
+            array_unshift($columns, 'id');
+        }
+        return $columns;
+    }
+
+    private function normalizeRowsToColumns(array $rows, array $columns): array
+    {
+        $values = [];
+        $placeholders = [];
+
+        foreach ($rows as $row) {
+            $rowPlaceholders = [];
+            foreach ($columns as $col) {
+                if (array_key_exists($col, $row)) {
+                    $values[] = $row[$col];
+                } else {
+                    $values[] = null;
+                }
+                $rowPlaceholders[] = '?';
+            }
+            $placeholders[] = '(' . implode(', ', $rowPlaceholders) . ')';
+        }
+
+        return ['values' => $values, 'placeholders' => $placeholders];
+    }
+
+    private function quoteIdentifiers(array $columns): array
+    {
+        $out = [];
+        foreach ($columns as $c) {
+            $escaped = str_replace('`', '``', $c);
+            $out[] = "`{$escaped}`";
+        }
+        return $out;
+    }
+
+    private function quotedTableName(): string
+    {
+        $name = $this->tableName ?? $this->table ?? '';
+        $escaped = str_replace('`', '``', $name);
+        return "`{$escaped}`";
+    }
+
+    private function buildInsertSql(string $quotedTable, array $quotedColumns, array $placeholders): string
+    {
+        if (empty($quotedColumns)) {
+            throw new RuntimeException('No columns specified for INSERT');
+        }
+        $cols = implode(', ', $quotedColumns);
+        $vals = implode(', ', $placeholders);
+        return "INSERT INTO {$quotedTable} ({$cols}) VALUES {$vals}";
+    }
+
+    private function validateRecordsArray(array $records): string
+    {
+        if ($records === []) {
+            throw new InvalidArgumentException('insertMany requires at least one record.');
+        }
+
+        $expectedClass = $this->recordClass ?? get_class($records[0]);
+
+        foreach ($records as $i => $r) {
+            if (!is_object($r) || !($r instanceof $expectedClass)) {
+                throw new InvalidArgumentException("All elements passed to insertMany must be instances of {$expectedClass}. Found index {$i}.");
+            }
+        }
+
+        return $expectedClass;
     }
 
     /**
