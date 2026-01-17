@@ -74,9 +74,22 @@ Seed the database with test/sample data.
 # Run all seeders
 php vendor/phillipsharring/handlr-framework/scripts/seed.php
 
+# Run a specific seeder file
+php vendor/phillipsharring/handlr-framework/scripts/seed.php series
+php vendor/phillipsharring/handlr-framework/scripts/seed.php pack_templates.php
+
 # Truncate tables first, then seed (fresh start)
 php vendor/phillipsharring/handlr-framework/scripts/seed.php --fresh
+
+# Run a specific seeder with fresh (truncates only tables in that seeder)
+php vendor/phillipsharring/handlr-framework/scripts/seed.php series --fresh
 ```
+
+**Arguments:**
+- `[file]` - Optional. Specific seeder file to run (e.g., `series` or `series.php`). The `.php` extension is added automatically if omitted.
+
+**Options:**
+- `--fresh`, `-f` - Truncate tables before seeding
 
 Seed files live in the `seeds/` directory and return arrays keyed by Table class names.
 

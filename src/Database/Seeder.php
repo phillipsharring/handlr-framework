@@ -243,3 +243,4 @@ class Seeder
         return $classes;
     }
 }
+

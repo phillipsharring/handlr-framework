@@ -10,6 +10,7 @@ use Handlr\Database\Db;
 use Handlr\Database\Seeder;
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -21,6 +22,7 @@ class SeedCommand extends Command
         $this
             ->setName('db:seed')
             ->setDescription('Run database seeders.')
+            ->addArgument('file', InputArgument::OPTIONAL, 'Specific seeder file to run (e.g., "series" or "series.php")')
             ->addOption('fresh', 'f', InputOption::VALUE_NONE, 'Truncate tables before seeding');
     }
 
@@ -63,11 +65,30 @@ class SeedCommand extends Command
             return Command::SUCCESS;
         }
 
-        // Find all seed files
-        $seedFiles = glob($seedsPath . '/*.php');
-        if ($seedFiles === false || count($seedFiles) === 0) {
-            $output->writeln("<comment>No seed files found in: {$seedsPath}</comment>");
-            return Command::SUCCESS;
+        // Check if a specific file was requested
+        $specificFile = $input->getArgument('file');
+
+        if ($specificFile !== null) {
+            // Normalize: add .php if not present
+            if (!str_ends_with($specificFile, '.php')) {
+                $specificFile .= '.php';
+            }
+
+            $fullPath = $seedsPath . '/' . $specificFile;
+            if (!file_exists($fullPath)) {
+                $output->writeln("<error>Seeder file not found: {$fullPath}</error>");
+                return Command::FAILURE;
+            }
+
+            $seedFiles = [$fullPath];
+            $output->writeln("<info>Running specific seeder: {$specificFile}</info>");
+        } else {
+            // Find all seed files
+            $seedFiles = glob($seedsPath . '/*.php');
+            if ($seedFiles === false || count($seedFiles) === 0) {
+                $output->writeln("<comment>No seed files found in: {$seedsPath}</comment>");
+                return Command::SUCCESS;
+            }
         }
 
         $seeder = new Seeder($db);
