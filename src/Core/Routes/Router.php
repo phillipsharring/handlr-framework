@@ -47,7 +47,7 @@ class Router
         }
 
         if ($matchedRoute === null) {
-            return $response->withStatus(Response::HTTP_NOT_FOUND)->withBody('404 File Not Found');
+            return $response->withStatus(Response::HTTP_NOT_FOUND)->withJson(['message' => '404 File Not Found']);
         }
 
         // Set route params on request for easy access
