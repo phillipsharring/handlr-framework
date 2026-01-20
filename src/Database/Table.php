@@ -38,7 +38,6 @@ abstract class Table
     public function findById(int|string $id): ?Record
     {
         $recordInstance = $this->getRecordInstance();
-
         if ($recordInstance->usesUuid()) {
             $id = $this->db->uuidToBin((string)$id);
         }

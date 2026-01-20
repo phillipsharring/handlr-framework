@@ -53,6 +53,10 @@ abstract class Record implements JsonSerializable
         }
 
         foreach ($data as $key => $value) {
+            if (in_array($key, $this->uuidColumns(), true)) {
+                $value = $this->binToUuid($value);
+            }
+
             $this->data[$key] = $value;
 
             if (property_exists($this, $key)) {
@@ -78,10 +82,10 @@ abstract class Record implements JsonSerializable
         if ($value !== null && isset($this->casts[$key])) {
             $castType = $this->casts[$key];
             $value = match ($castType) {
-                'date' => is_string($value) ? new DateTime($value) : null,
-                'int' => (int)$value,
-                'float' => (float)$value,
-                'bool' => (bool)$value,
+                'date'   => is_string($value) ? new DateTime($value) : null,
+                'int'    => (int)$value,
+                'float'  => (float)$value,
+                'bool'   => (bool)$value,
                 'string' => (string)$value,
             };
         }
@@ -140,5 +144,16 @@ abstract class Record implements JsonSerializable
     {
         // UUIDv7 is time-ordered (better index locality than v4) while remaining globally unique.
         return Uuid::uuid7()->toString();
+    }
+
+    private function binToUuid(string $value): string
+    {
+        if (Uuid::isValid($value)) {
+            // it is probably already a uuid
+            return $value;
+        }
+
+        // Accept raw 16-byte binary string from BINARY(16) columns.
+        return Uuid::fromBytes($value)->toString();
     }
 }

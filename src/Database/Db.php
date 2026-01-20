@@ -101,12 +101,22 @@ class Db implements DbInterface
 
     public function uuidToBin(string $uuid): string
     {
+        if (!Uuid::isValid($uuid)) {
+            // it is probably already a binary string
+            return $uuid;
+        }
+
         // Return raw 16-byte binary string for storage in BINARY(16) columns.
         return Uuid::fromString($uuid)->getBytes();
     }
 
     public function binToUuid(string $bin): string
     {
+        if (Uuid::isValid($bin)) {
+            // it is probably already a uuid
+            return $bin;
+        }
+
         // Accept raw 16-byte binary string from BINARY(16) columns.
         return Uuid::fromBytes($bin)->toString();
     }
