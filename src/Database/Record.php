@@ -102,7 +102,6 @@ abstract class Record implements JsonSerializable, ArrayAccess
         }
         if (property_exists($this, $key)) {
             $this->$key = $value;
-            return;
         }
         $this->data[$key] = $value;
     }
