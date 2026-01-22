@@ -463,6 +463,9 @@ abstract class Table
     {
         // 1) Primitive shorthand
         if (!is_array($condition)) {
+            if ($condition === null) {
+                return ["`{$column}` IS NULL", []];
+            }
             $op = '=';
             $value = $this->normalizeIdConditionValue($column, $op, $condition, $recordInstance);
             return ["`{$column}` {$op} ?", [$value]];
