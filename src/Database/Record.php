@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace Handlr\Database;
 
+use ArrayAccess;
 use DateTime;
 use JsonSerializable;
 use Ramsey\Uuid\Uuid;
 
-abstract class Record implements JsonSerializable
+abstract class Record implements JsonSerializable, ArrayAccess
 {
     // int or UUID (string)
     public int|string|null $id = null;
@@ -128,6 +129,22 @@ abstract class Record implements JsonSerializable
             return;
         }
         unset($this->data[$key]);
+    }
+
+    public function offsetExists(mixed $offset): bool {
+        return $this->__isset($offset);
+    }
+
+    public function offsetGet(mixed $offset): mixed {
+        return $this->__get($offset);
+    }
+
+    public function offsetSet(mixed $offset, mixed $value): void {
+        $this->__set($offset, $value);
+    }
+
+    public function offsetUnset(mixed $offset): void {
+        $this->__unset($offset);
     }
 
     public function toArray(): array
