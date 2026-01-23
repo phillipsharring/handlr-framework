@@ -6,21 +6,18 @@ namespace Handlr\Pipes;
 
 use Handlr\Core\Request;
 use Handlr\Core\Response;
-use Handlr\Log\Log;
+use Handlr\Log\Logger;
 
 class LogPipe implements Pipe
 {
-    public function __construct(private Log $logger) {}
+    public function __construct(private Logger $log) {}
 
     public function handle(Request $request, Response $response, array $args, callable $next): Response
     {
-        $message = '{date} {method} {uri}';
-        $context = [
-            'date' => date('c'),
+        $this->log->info('{method} {uri}', [
             'method' => $request->getMethod(),
             'uri' => $request->getUri(),
-        ];
-        $this->logger::info($message, $context);
+        ]);
 
         return $next($request, $response, $args);
     }

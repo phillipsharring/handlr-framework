@@ -7,8 +7,7 @@ namespace Handlr\Core;
 use Handlr\Core\Container\Container;
 use Handlr\Core\Routes\Router;
 use Handlr\Database\Db;
-use Handlr\Log\Log;
-use Handlr\Log\Psr3Logger;
+use Handlr\Log\Logger;
 use Handlr\Pipes\ErrorPipe;
 use Handlr\Pipes\LogPipe;
 use Handlr\Session\DatabaseSessionDriver;
@@ -69,10 +68,8 @@ final class Kernel
 
     private function registerLogger(): void
     {
-        $logFile = $this->appRoot . '/logs/app.log';
-        $logger = new Log();
-        $logger::setLogger(new Psr3Logger($logFile));
-        $this->container->singleton(LogPipe::class, new LogPipe($logger));
+        $logFile = $_ENV['LOG_FILE'] ?: $this->appRoot . '/logs/app.log';
+        $this->container->singleton(Logger::class, new Logger($logFile));
     }
 
     private function registerDatabase(): void
@@ -90,9 +87,8 @@ final class Kernel
 
     private function registerGlobalPipes(): void
     {
-        $this->router->addGlobalPipe(new ErrorPipe());
-        $logHandler = $this->container->get(LogPipe::class);
-        $this->router->addGlobalPipe($logHandler);
+        $this->router->addGlobalPipe($this->container->get(ErrorPipe::class));
+        $this->router->addGlobalPipe($this->container->get(LogPipe::class));
     }
 
     private function loadBootstrap(): void
