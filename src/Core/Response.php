@@ -52,12 +52,12 @@ class Response
     {
         try {
             $json = json_encode($data, JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
-            // Avoid hard-failing the response pipeline if JSON encoding fails (e.g. invalid UTF-8).
-            // Keep the payload simple and always-valid JSON.
+        } catch (JsonException $e) {
+            error_log("JSON encoding failed: " . $e->getMessage());
+
             return $this
                 ->withHeader('Content-Type', 'application/json')
-                ->withBody('{"error":"JSON encoding failed"}')
+                ->withBody('{"error":"JSON encoding failed","message":"' . addslashes($e->getMessage()) . '"}')
                 ->withStatus(self::HTTP_SERVER_ERROR);
         }
 

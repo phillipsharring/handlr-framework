@@ -24,7 +24,15 @@ class ErrorPipe implements Pipe
             return $response->withBody("Error parsing JSON: {$e->getMessage()}")
                 ->withStatus(Response::HTTP_SERVER_ERROR);
         } catch (Throwable $e) {
-            return $response->withJson((array)$e, Response::HTTP_SERVER_ERROR);
+            error_log("Uncaught exception: " . get_class($e) . ": " . $e->getMessage());
+            error_log($e->getTraceAsString());
+
+            return $response->withJson([
+                'error' => $e->getMessage(),
+                'exception' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ], Response::HTTP_SERVER_ERROR);
         }
     }
 }

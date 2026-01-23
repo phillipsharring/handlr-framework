@@ -29,6 +29,17 @@ abstract class Record implements JsonSerializable, ArrayAccess
     protected array $data = [];
     protected array $casts = [];
 
+    /**
+     * Columns that are computed/virtual and should NOT be persisted to the database.
+     * These are included in toArray() for presentation but excluded from insert/update.
+     *
+     * Example in a child record:
+     *   protected array $computed = ['series_status', 'full_name'];
+     *
+     * @var string[]
+     */
+    protected array $computed = [];
+
     public function usesUuid(): bool
     {
         return $this->useUuid;
@@ -40,6 +51,14 @@ abstract class Record implements JsonSerializable, ArrayAccess
     public function uuidColumns(): array
     {
         return $this->uuidColumns;
+    }
+
+    /**
+     * @return string[]
+     */
+    public function computedColumns(): array
+    {
+        return $this->computed;
     }
 
     public function __construct(array $data = [])
@@ -149,6 +168,22 @@ abstract class Record implements JsonSerializable, ArrayAccess
     public function toArray(): array
     {
         return ['id' => $this->id] + $this->data;
+    }
+
+    /**
+     * Returns array for database persistence, excluding computed columns.
+     * Child classes that override toArray() should also override this
+     * if they include computed fields in toArray().
+     */
+    public function toPersistableArray(): array
+    {
+        $data = $this->toArray();
+
+        foreach ($this->computedColumns() as $col) {
+            unset($data[$col]);
+        }
+
+        return $data;
     }
 
     public function jsonSerialize(): array

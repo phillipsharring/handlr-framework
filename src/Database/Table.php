@@ -638,8 +638,11 @@ abstract class Table
 
     private function prepareInsertData($record): array
     {
-        // Convert to array and remove created_at (preserve behavior from insert)
-        $data = $record->toArray();
+        // Convert to array for DB, excluding computed columns, and remove created_at
+        $data = method_exists($record, 'toPersistableArray')
+            ? $record->toPersistableArray()
+            : $record->toArray();
+
         if (array_key_exists('created_at', $data)) {
             unset($data['created_at']);
         }
@@ -788,11 +791,12 @@ abstract class Table
             throw new DatabaseException('Cannot update a record without an ID.');
         }
 
-        // id is not updated
-        $data = $record->toArray();
-        unset($data['id']);
+        // Get persistable data (excludes computed columns), then remove id and updated_at
+        $data = method_exists($record, 'toPersistableArray')
+            ? $record->toPersistableArray()
+            : $record->toArray();
 
-        // Remove updated_at from update data to let the database default handle it
+        unset($data['id']);
         unset($data['updated_at']);
 
         $data = $this->convertUuidColumnsForDb($record, $data);
