@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Handlr\Core\Container;
 
 use Exception;
-use Handlr\Log\Log;
+use Handlr\Log\Logger;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionParameter;
@@ -81,7 +81,7 @@ final class Container implements ContainerInterface
         $type = gettype($concrete);
         $message = "Invalid binding type `$type` for abstract `$abstract`. Expected a string (class name), object, or callable (factory).";
 
-        Log::error($message);
+        (new Logger())->error($message);
         throw new ContainerException($message);
     }
 
