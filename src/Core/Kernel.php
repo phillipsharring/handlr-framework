@@ -68,7 +68,7 @@ final class Kernel
 
     private function registerLogger(): void
     {
-        $logFile = $_ENV['LOG_FILE'] ?: $this->appRoot . '/logs/app.log';
+        $logFile = ($_ENV['LOG_FILE'] ?? null) ?: $this->appRoot . '/logs/app.log';
         $this->container->singleton(Logger::class, new Logger($logFile));
     }
 
