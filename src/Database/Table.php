@@ -10,7 +10,6 @@ use RuntimeException;
 
 abstract class Table
 {
-    protected DbInterface $db;
     protected string $tableName;
     protected string $recordClass;
 
@@ -24,10 +23,8 @@ abstract class Table
     /**
      * @throws DatabaseException
      */
-    public function __construct(DbInterface $db)
+    public function __construct(protected DbInterface $db)
     {
-        $this->db = $db;
-
         if (!isset($this->tableName, $this->recordClass)) {
             throw new DatabaseException(
                 'Table name and record class must be defined in child classes.'
