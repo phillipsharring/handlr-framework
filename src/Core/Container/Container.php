@@ -165,6 +165,10 @@ final class Container implements ContainerInterface
     private function instantiate(string $alias): object
     {
         try {
+            if ($alias === ContainerInterface::class || $alias === Container::class) {
+                return $this;
+            }
+
             // Resolve an alias if there is one
             $abstract = $this->aliases[$alias] ?? $alias;
 

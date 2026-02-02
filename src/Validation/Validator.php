@@ -21,9 +21,9 @@ class Validator
         'array'
     ];
     private const SANITIZER_SUBSTITUTIONS = [
-        'uuid'        => 'string',
-        'uuid7'       => 'string',
-        'gcsFilename' => 'string',
+        'uuid'  => 'string',
+        'uuid7' => 'string',
+        'in'    => 'string',
     ];
     private const VALID_DEFAULT_TYPES = ['int', 'string', 'bool', 'float', 'array'];
 
