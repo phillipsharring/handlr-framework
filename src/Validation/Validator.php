@@ -18,12 +18,12 @@ class Validator
     private const RULES_WITHOUT_SANITIZATION = [
         'required',
         'date',
-        'array'
+        'array',
+        'in',
     ];
     private const SANITIZER_SUBSTITUTIONS = [
         'uuid'  => 'string',
         'uuid7' => 'string',
-        'in'    => 'string',
     ];
     private const VALID_DEFAULT_TYPES = ['int', 'string', 'bool', 'float', 'array'];
 
