@@ -13,11 +13,11 @@ class HandlerResult
         public readonly array $meta = [],
     ) {}
 
-    public function ok(mixed $data = null, array $meta = []): HandlerResult {
+    public function ok(mixed $data = null, array $meta = []): static {
         return new self(true, $data, [], $meta);
     }
 
-    public function fail(array $errors, array $meta = []): self {
+    public function fail(array $errors, array $meta = []): static {
         return new self(false, null, $errors, $meta);
     }
 }
