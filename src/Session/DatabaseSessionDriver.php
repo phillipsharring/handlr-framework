@@ -41,16 +41,14 @@ class DatabaseSessionDriver implements SessionHandlerInterface
         $userId = $_SESSION['user_id'] ?? null;
 
         $sql = "
-            REPLACE INTO `$this->table` (`id`, `access`, `data`, `ip_address`, `user_id`)
-            VALUES (:id, :access, :data, :ip_address, UUID_TO_BIN(:user_id))
+            REPLACE INTO `$this->table` (`id`, `access`, `data`)
+            VALUES (:id, :access, :data)
         ";
 
         $params = [
             ':id' => $id,
             ':access' => $access,
             ':data' => $data,
-            ':ip_address' => $ipAddress,
-            ':user_id' => $userId
         ];
 
         return (bool)$this->db->execute($sql, $params);

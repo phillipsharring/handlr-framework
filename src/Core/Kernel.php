@@ -12,6 +12,7 @@ use Handlr\Pipes\ErrorPipe;
 use Handlr\Pipes\LogPipe;
 use Handlr\Session\DatabaseSessionDriver;
 use Handlr\Session\Session;
+use Handlr\Session\SessionInterface;
 
 final class Kernel
 {
@@ -82,7 +83,8 @@ final class Kernel
     {
         $db = $this->container->singleton(Db::class);
         $sessionHandler = new DatabaseSessionDriver($db);
-        Session::useHandler($sessionHandler);
+        $session = new Session($sessionHandler);
+        $this->container->singleton(SessionInterface::class, $session);
     }
 
     private function registerGlobalPipes(): void
