@@ -1,5 +1,38 @@
 <?php
 
+/**
+ * Database Migration CLI Script
+ *
+ * Runs or rolls back database migrations using MigrationRunner. Migrations
+ * live in `{app_root}/migrations/` and are tracked in a `migrations` table.
+ *
+ * ## Usage
+ *
+ * ```bash
+ * # Run all pending migrations
+ * php scripts/migrate.php up
+ *
+ * # Run migrations one at a time (step-wise)
+ * php scripts/migrate.php up step
+ *
+ * # Rollback the last batch
+ * php scripts/migrate.php down
+ * php scripts/migrate.php rollback
+ *
+ * # Rollback multiple batches
+ * php scripts/migrate.php down 3
+ * ```
+ *
+ * ## Creating Migrations
+ *
+ * Use the make script to generate migration files:
+ * ```bash
+ * php scripts/make.php migration create_users_table
+ * ```
+ *
+ * @see \Handlr\Database\Migrations\MigrationRunner
+ */
+
 declare(strict_types=1);
 
 require_once __DIR__ . '/../bootstrap.php';
@@ -15,6 +48,9 @@ use Handlr\Core\Container\Container;
 use Handlr\Database\Db;
 use Handlr\Database\Migrations\MigrationRunner;
 
+/**
+ * Symfony Console command for running database migrations.
+ */
 class MigrateCommand extends Command
 {
     protected function configure(): void

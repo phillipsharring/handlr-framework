@@ -1,5 +1,50 @@
 <?php
 
+/**
+ * Database Seeder CLI Script
+ *
+ * Populates the database with seed data from files in `{app_root}/seeds/`.
+ * Each seed file returns an array mapping Table classes to record data.
+ *
+ * ## Usage
+ *
+ * ```bash
+ * # Run all seeders in the seeds/ directory
+ * php scripts/seed.php
+ *
+ * # Run a specific seeder file
+ * php scripts/seed.php users
+ * php scripts/seed.php users.php
+ *
+ * # Truncate tables before seeding (fresh start)
+ * php scripts/seed.php --fresh
+ * php scripts/seed.php -f
+ * ```
+ *
+ * ## Seed File Format
+ *
+ * Seed files return an array of [TableClass => [records...]]:
+ *
+ * ```php
+ * // seeds/users.php
+ * return [
+ *     UsersTable::class => [
+ *         ['name' => 'Admin', 'email' => 'admin@example.com'],
+ *         ['name' => 'User', 'email' => 'user@example.com'],
+ *     ],
+ * ];
+ * ```
+ *
+ * ## Creating Seed Files
+ *
+ * Use the make script to generate seeder files:
+ * ```bash
+ * php scripts/make.php seeder users
+ * ```
+ *
+ * @see \Handlr\Database\Migrations\Seeder
+ */
+
 declare(strict_types=1);
 
 require_once __DIR__ . '/../bootstrap.php';
@@ -15,6 +60,9 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
+/**
+ * Symfony Console command for running database seeders.
+ */
 class SeedCommand extends Command
 {
     protected function configure(): void

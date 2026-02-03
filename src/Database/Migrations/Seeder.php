@@ -10,6 +10,54 @@ use Handlr\Database\Table;
 use InvalidArgumentException;
 use RuntimeException;
 
+/**
+ * Populates the database with seed data.
+ *
+ * Seeds are defined as arrays mapping Table classes to record data. Supports
+ * nested relations via `_relations` key for inserting related records.
+ *
+ * ## Basic Usage
+ *
+ * ```php
+ * $seeder = new Seeder($db);
+ *
+ * $seeder->seed([
+ *     UsersTable::class => [
+ *         ['name' => 'Admin', 'email' => 'admin@example.com'],
+ *         ['name' => 'User', 'email' => 'user@example.com'],
+ *     ],
+ * ]);
+ * ```
+ *
+ * ## Nested Relations
+ *
+ * Use `_relations` to insert related records. The parent's ID is automatically
+ * injected as a foreign key (e.g., `user_id` for a `users` table parent).
+ *
+ * ```php
+ * $seeder->seed([
+ *     UsersTable::class => [
+ *         [
+ *             'name' => 'John',
+ *             '_relations' => [
+ *                 PostsTable::class => [
+ *                     ['title' => 'First Post'],  // user_id auto-injected
+ *                     ['title' => 'Second Post'],
+ *                 ],
+ *             ],
+ *         ],
+ *     ],
+ * ]);
+ * ```
+ *
+ * ## Fresh Seeding (Truncate First)
+ *
+ * ```php
+ * $tableClasses = $seeder->collectTableClasses($data);
+ * $seeder->truncate(array_reverse($tableClasses));  // Children first
+ * $seeder->seed($data);
+ * ```
+ */
 class Seeder
 {
     protected DbInterface $db;

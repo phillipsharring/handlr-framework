@@ -9,12 +9,52 @@ use Migrations; // NOSONAR
 use PDO;
 use RuntimeException;
 
+/**
+ * Runs and tracks database migrations.
+ *
+ * Migrations are PHP files in the migrations directory. Each file defines a class
+ * extending BaseMigration with `up()` and `down()` methods. The runner tracks
+ * applied migrations in a `migrations` table with batch numbers for rollback.
+ *
+ * ## File Naming Convention
+ *
+ * Migration files must be named: `{timestamp}_{description}.php`
+ * Example: `20250101120000_create_users_table.php`
+ *
+ * The class name is derived from the filename:
+ * `Migration_{timestamp}_{StudlyDescription}`
+ * Example: `Migration_20250101120000_CreateUsersTable`
+ *
+ * ## Usage
+ *
+ * ```php
+ * $runner = new MigrationRunner($db, '/path/to/migrations');
+ *
+ * // Run all pending migrations (single batch)
+ * $runner->migrate();
+ *
+ * // Run migrations one at a time (each gets its own batch number)
+ * $runner->migrate(stepWise: true);
+ *
+ * // Rollback the last batch
+ * $runner->rollback();
+ *
+ * // Rollback the last 3 batches
+ * $runner->rollback(3);
+ * ```
+ *
+ * @see BaseMigration
+ */
 class MigrationRunner
 {
     private Db $db;
 
     private string $migrationPath;
 
+    /**
+     * @param Db     $db            Database connection
+     * @param string $migrationPath Path to migrations directory
+     */
     public function __construct(Db $db, string $migrationPath)
     {
         $this->db = $db;
@@ -22,6 +62,7 @@ class MigrationRunner
         $this->ensureMigrationsTableExists();
     }
 
+    /** Create the database if it doesn't exist (utf8mb4) */
     public function createDatabase(): void
     {
         $this->db->execute(
@@ -61,6 +102,11 @@ class MigrationRunner
         $this->log('Migrations table created.');
     }
 
+    /**
+     * Run all pending migrations.
+     *
+     * @param bool $stepWise If true, each migration gets its own batch number
+     */
     public function migrate(bool $stepWise = false): void
     {
         $appliedMigrations = array_map(static fn(array $row) => ($row['file']), $this->getAppliedMigrations());
@@ -92,6 +138,11 @@ class MigrationRunner
         }
     }
 
+    /**
+     * Rollback migrations by batch count.
+     *
+     * @param int $steps Number of batches to rollback (default: 1)
+     */
     public function rollback(int $steps = 1): void
     {
         $maxBatch = $this->getMaxBatch();
