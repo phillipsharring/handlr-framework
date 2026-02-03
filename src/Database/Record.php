@@ -145,9 +145,20 @@ use Ramsey\Uuid\Uuid;
 abstract class Record implements JsonSerializable, ArrayAccess
 {
     /**
-     * Primary key - integer for auto-increment tables, string UUID for UUID tables.
+     * Primary key value - integer for auto-increment tables, string UUID for UUID tables.
      */
     public int|string|null $id = null;
+
+    /**
+     * The column name of the primary key.
+     * Override in child class if the primary key column is not `id`.
+     *
+     * ```php
+     * // For a table where user_id is the primary key:
+     * protected string $primaryKey = 'user_id';
+     * ```
+     */
+    protected string $primaryKey = 'id';
 
     /**
      * Whether this record uses UUIDs for the primary key.
@@ -221,6 +232,26 @@ abstract class Record implements JsonSerializable, ArrayAccess
     }
 
     /**
+     * Get the primary key column name.
+     *
+     * @return string The column name (default: 'id')
+     */
+    public function primaryKey(): string
+    {
+        return $this->primaryKey;
+    }
+
+    /**
+     * Check if a key refers to the primary key.
+     *
+     * Allows access via both 'id' and the actual primary key column name.
+     */
+    protected function isPrimaryKey(string $key): bool
+    {
+        return $key === 'id' || $key === $this->primaryKey;
+    }
+
+    /**
      * Get the list of UUID columns (excluding `id`).
      *
      * Used by the Table class to convert between UUID strings and BINARY(16).
@@ -266,12 +297,14 @@ abstract class Record implements JsonSerializable, ArrayAccess
      */
     public function __construct(array $data = [])
     {
-        // ID is stored on the public property, never inside $this->data.
-        if (array_key_exists('id', $data) && $data['id'] !== null && $data['id'] !== '') {
-            $this->id = $data['id'];
-            unset($data['id']);
+        $pk = $this->primaryKey();
+
+        // Primary key is stored on the public $id property, never inside $this->data.
+        if (array_key_exists($pk, $data) && $data[$pk] !== null && $data[$pk] !== '') {
+            $this->id = $data[$pk];
+            unset($data[$pk]);
         } elseif ($this->usesUuid()) {
-            // If UUIDs are enabled and no id is provided, assume this is a new record.
+            // If UUIDs are enabled and no pk is provided, assume this is a new record.
             $this->id = $this->generateUuid();
         }
 
@@ -305,7 +338,7 @@ abstract class Record implements JsonSerializable, ArrayAccess
      */
     public function __get(string $key)
     {
-        if ($key === 'id') {
+        if ($this->isPrimaryKey($key)) {
             return $this->id;
         }
 
@@ -342,7 +375,7 @@ abstract class Record implements JsonSerializable, ArrayAccess
      */
     public function __set(string $key, $value)
     {
-        if ($key === 'id') {
+        if ($this->isPrimaryKey($key)) {
             $this->id = $value;
             return;
         }
@@ -361,7 +394,7 @@ abstract class Record implements JsonSerializable, ArrayAccess
      */
     public function __isset(string $key): bool
     {
-        if ($key === 'id') {
+        if ($this->isPrimaryKey($key)) {
             return isset($this->id);
         }
         if (property_exists($this, $key)) {
@@ -377,7 +410,7 @@ abstract class Record implements JsonSerializable, ArrayAccess
      */
     public function __unset(string $key)
     {
-        if ($key === 'id') {
+        if ($this->isPrimaryKey($key)) {
             $this->id = null;
             return;
         }
@@ -441,7 +474,7 @@ abstract class Record implements JsonSerializable, ArrayAccess
      */
     public function toArray(): array
     {
-        return ['id' => $this->id] + $this->data;
+        return [$this->primaryKey() => $this->id] + $this->data;
     }
 
     /**

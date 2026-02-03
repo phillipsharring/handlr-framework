@@ -155,16 +155,18 @@ abstract class Table
     public function findById(int|string $id): ?Record
     {
         $recordInstance = $this->getRecordInstance();
+        $pk = $recordInstance->primaryKey();
+
         if ($recordInstance->usesUuid()) {
             $id = $this->db->uuidToBin((string)$id);
         }
 
-        $sql = "SELECT * FROM `$this->tableName` WHERE id = ?";
+        $sql = "SELECT * FROM `$this->tableName` WHERE `{$pk}` = ?";
         $stmt = $this->db->execute($sql, [$id]);
         $data = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if ($data && $recordInstance->usesUuid()) {
-            $data['id'] = $this->db->binToUuid($data['id']);
+        if ($data && $recordInstance->usesUuid() && isset($data[$pk])) {
+            $data[$pk] = $this->db->binToUuid($data[$pk]);
         }
 
         return $data ? new $this->recordClass($data) : null;
@@ -475,14 +477,15 @@ abstract class Table
             throw new InvalidArgumentException('record must be an object');
         }
 
+        $pk = method_exists($record, 'primaryKey') ? $record->primaryKey() : 'id';
         $prepared = $this->prepareInsertData($record);
 
         // Determine columns for single-row insert
         $columns = $this->buildColumnsUnion([$prepared]);
         $firstUsesUuid = method_exists($record, 'usesUuid') ? $record->usesUuid() : false;
-        $anyNonEmptyId = $this->detectAnyNonEmptyId([$prepared]);
+        $anyNonEmptyId = $this->detectAnyNonEmptyId([$prepared], $pk);
 
-        $columns = $this->maybeIncludeIdColumn($columns, $firstUsesUuid, $anyNonEmptyId);
+        $columns = $this->maybeIncludeIdColumn($columns, $firstUsesUuid, $anyNonEmptyId, $pk);
 
         $normalized = $this->normalizeRowsToColumns([$prepared], $columns);
         $quotedCols = $this->quoteIdentifiers($columns);
@@ -532,6 +535,8 @@ abstract class Table
     {
         $expectedClass = $this->validateRecordsArray($records);
 
+        $pk = method_exists($records[0], 'primaryKey') ? $records[0]->primaryKey() : 'id';
+
         // Prepare rows
         $preparedRows = [];
         foreach ($records as $record) {
@@ -541,9 +546,9 @@ abstract class Table
         // Build columns union and determine id inclusion rules
         $columns = $this->buildColumnsUnion($preparedRows);
         $firstUsesUuid = method_exists($records[0], 'usesUuid') ? $records[0]->usesUuid() : false;
-        $anyNonEmptyId = $this->detectAnyNonEmptyId($preparedRows);
+        $anyNonEmptyId = $this->detectAnyNonEmptyId($preparedRows, $pk);
 
-        $columns = $this->maybeIncludeIdColumn($columns, $firstUsesUuid, $anyNonEmptyId);
+        $columns = $this->maybeIncludeIdColumn($columns, $firstUsesUuid, $anyNonEmptyId, $pk);
 
         // Normalize and build SQL
         $normalized = $this->normalizeRowsToColumns($preparedRows, $columns);
@@ -739,19 +744,21 @@ abstract class Table
      */
     private function hydrateRow(array $row, Record $recordInstance): Record
     {
-        if (isset($row['id'])) {
+        $pk = $recordInstance->primaryKey();
+
+        if (isset($row[$pk])) {
             if ($recordInstance->usesUuid()) {
-                $row['id'] = $this->db->binToUuid($row['id']);
+                $row[$pk] = $this->db->binToUuid($row[$pk]);
             } else {
-                $row['id'] = (int)$row['id'];
+                $row[$pk] = (int)$row[$pk];
             }
         } else {
-            $row['id'] = 0;
+            $row[$pk] = $recordInstance->usesUuid() ? '' : 0;
         }
 
         // Convert additional UUID columns (e.g. user_id) from BINARY(16) -> UUID string.
         foreach ($this->uuidColumnsForRecord($recordInstance) as $col) {
-            if ($col === 'id') continue;
+            if ($col === $pk) continue;
             if (!array_key_exists($col, $row)) continue;
             if ($row[$col] === null || $row[$col] === '') continue;
             if (is_string($row[$col])) {
@@ -899,13 +906,15 @@ abstract class Table
     }
 
     /**
-     * Special-case ID values so the DB boundary stays consistent.
+     * Special-case primary key values so the DB boundary stays consistent.
      * - UUID records store id in code as string UUID, and in DB as binary => uuidToBin() for conditions.
      * - int records cast id conditions to int.
      */
     private function normalizeIdConditionValue(string $column, string $op, mixed $value, Record $recordInstance): mixed
     {
-        if ($column !== 'id') {
+        $pk = $recordInstance->primaryKey();
+
+        if ($column !== $pk) {
             $uuidCols = $this->uuidColumnsForRecord($recordInstance);
             if (in_array($column, $uuidCols, true)) {
                 if ($value === null || $value === '') {
@@ -927,15 +936,16 @@ abstract class Table
     }
 
     /**
-     * Convert configured UUID columns (other than `id`) from UUID string -> BINARY(16) for DB storage.
+     * Convert configured UUID columns (other than primary key) from UUID string -> BINARY(16) for DB storage.
      *
      * @param array<string,mixed> $data
      * @return array<string,mixed>
      */
     private function convertUuidColumnsForDb(Record $record, array $data): array
     {
+        $pk = $record->primaryKey();
         foreach ($this->uuidColumnsForRecord($record) as $col) {
-            if ($col === 'id') continue;
+            if ($col === $pk) continue;
             if (!array_key_exists($col, $data)) continue;
             $v = $data[$col];
             if ($v === null || $v === '') continue;
@@ -954,6 +964,8 @@ abstract class Table
 
     private function prepareInsertData($record): array
     {
+        $pk = method_exists($record, 'primaryKey') ? $record->primaryKey() : 'id';
+
         // Convert to array for DB, excluding computed columns, and remove created_at
         $data = method_exists($record, 'toPersistableArray')
             ? $record->toPersistableArray()
@@ -969,7 +981,7 @@ abstract class Table
         // If this record uses UUIDs, ensure the record has a string id and store binary for DB
         if (method_exists($record, 'usesUuid') && $record->usesUuid()) {
             $stringId = (string)$record->id;
-            $data['id'] = $this->db->uuidToBin($stringId);
+            $data[$pk] = $this->db->uuidToBin($stringId);
             // keep the record id as string for caller
             $record->id = $stringId;
         }
@@ -977,18 +989,18 @@ abstract class Table
         return $data;
     }
 
-    private function shouldOmitAutoIncrementId($record, array $data): bool
+    private function shouldOmitAutoIncrementId($record, array $data, string $pk = 'id'): bool
     {
         if (method_exists($record, 'usesUuid') && $record->usesUuid()) {
             return false;
         }
 
-        // Match previous semantics: treat empty id (except 0) as "omit"
-        if (!array_key_exists('id', $data)) {
+        // Match previous semantics: treat empty primary key (except 0) as "omit"
+        if (!array_key_exists($pk, $data)) {
             return true;
         }
 
-        $val = $data['id'];
+        $val = $data[$pk];
         return empty($val) && $val !== 0 && $val !== '0';
     }
 
@@ -1005,29 +1017,27 @@ abstract class Table
         return $columns;
     }
 
-    private function detectAnyNonEmptyId(array $rows): bool
+    private function detectAnyNonEmptyId(array $rows, string $pk = 'id'): bool
     {
-        foreach ($rows as $row) {
-            if (array_key_exists('id', $row) && $row['id'] !== null && $row['id'] !== '') {
-                return true;
-            }
-        }
-        return false;
+        return array_any(
+            $rows,
+            fn($row) => array_key_exists($pk, $row) && $row[$pk] !== null && $row[$pk] !== ''
+        );
     }
 
-    private function maybeIncludeIdColumn(array $columns, bool $firstUsesUuid, bool $anyNonEmptyId): array
+    private function maybeIncludeIdColumn(array $columns, bool $firstUsesUuid, bool $anyNonEmptyId, string $pk = 'id'): array
     {
         if (!$firstUsesUuid && !$anyNonEmptyId) {
-            // Omit id to allow auto-increment
-            $columns = array_values(array_filter($columns, function ($c) {
-                return $c !== 'id';
+            // Omit primary key to allow auto-increment
+            $columns = array_values(array_filter($columns, function ($c) use ($pk) {
+                return $c !== $pk;
             }));
             return $columns;
         }
 
-        // Ensure id is present (for UUIDs or when explicit ids were provided)
-        if (!in_array('id', $columns, true)) {
-            array_unshift($columns, 'id');
+        // Ensure primary key is present (for UUIDs or when explicit ids were provided)
+        if (!in_array($pk, $columns, true)) {
+            array_unshift($columns, $pk);
         }
         return $columns;
     }
@@ -1119,17 +1129,18 @@ abstract class Table
      */
     public function update(Record $record): int
     {
+        $pk = $record->primaryKey();
         $id = $record->id;
         if ($id === null || $id === '') {
             throw new DatabaseException('Cannot update a record without an ID.');
         }
 
-        // Get persistable data (excludes computed columns), then remove id and updated_at
+        // Get persistable data (excludes computed columns), then remove primary key and updated_at
         $data = method_exists($record, 'toPersistableArray')
             ? $record->toPersistableArray()
             : $record->toArray();
 
-        unset($data['id']);
+        unset($data[$pk]);
         unset($data['updated_at']);
 
         $data = $this->convertUuidColumnsForDb($record, $data);
@@ -1148,7 +1159,7 @@ abstract class Table
         $setSql = implode(',', $setClauses);
         $values[] = $id;
 
-        $sql = "UPDATE `$this->tableName` SET $setSql WHERE id = ?";
+        $sql = "UPDATE `$this->tableName` SET $setSql WHERE `{$pk}` = ?";
         $this->db->execute($sql, $values);
 
         return $this->db->affectedRows();
@@ -1178,13 +1189,14 @@ abstract class Table
             throw new DatabaseException('Cannot delete a record without an ID.');
         }
 
+        $pk = $record->primaryKey();
         $id = $record->id;
 
         if ($record->usesUuid()) {
             $id = $this->db->uuidToBin((string)$id);
         }
 
-        $sql = "DELETE FROM `$this->tableName` WHERE id = ?";
+        $sql = "DELETE FROM `$this->tableName` WHERE `{$pk}` = ?";
         $this->db->execute($sql, [$id]);
 
         return $this->db->affectedRows();
