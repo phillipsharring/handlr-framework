@@ -50,11 +50,28 @@ abstract class Table
         return $data ? new $this->recordClass($data) : null;
     }
 
+    /**
+     * Find first record matching conditions.
+     *
+     * @param array $columns    Columns to select (empty = all)
+     * @param array $conditions Where conditions
+     * @param array $orderBy    Order by as indexed arrays: [['column', 'DESC']] - NOT associative!
+     */
     public function findFirst(array $columns = [], array $conditions = [], array $orderBy = []): ?Record
     {
         return $this->findWhere($columns, $conditions, $orderBy, 1)[0] ?? null;
     }
 
+    /**
+     * Find records matching conditions.
+     *
+     * @param array $columns    Columns to select (empty = all)
+     * @param array $conditions Where conditions as ['column' => 'value'] or ['column' => ['op', 'value']]
+     * @param array $orderBy    Order by clauses as indexed arrays: [['column', 'DESC'], ['other_column', 'ASC']]
+     *                          NOT associative! Use ['created_at', 'DESC'] not ['created_at' => 'DESC']
+     * @param int|null $limit   Max rows to return
+     * @return Record[]
+     */
     public function findWhere(array $columns = [], array $conditions = [], array $orderBy = [], ?int $limit = null): array
     {
         $recordInstance = $this->getRecordInstance();
@@ -592,6 +609,9 @@ abstract class Table
         if ($column !== 'id') {
             $uuidCols = $this->uuidColumnsForRecord($recordInstance);
             if (in_array($column, $uuidCols, true)) {
+                if ($value === null || $value === '') {
+                    return $value;
+                }
                 return $this->db->uuidToBin($value);
             }
             return $value;

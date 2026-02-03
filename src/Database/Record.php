@@ -73,8 +73,13 @@ abstract class Record implements JsonSerializable, ArrayAccess
         }
 
         foreach ($data as $key => $value) {
-            if (in_array($key, $this->uuidColumns(), true)) {
+            if (in_array($key, $this->uuidColumns(), true) && $value !== null) {
                 $value = $this->binToUuid($value);
+            }
+
+            // Apply bool cast before assigning to typed properties
+            if (isset($this->casts[$key]) && $this->casts[$key] === 'bool') {
+                $value = (bool)$value;
             }
 
             $this->data[$key] = $value;

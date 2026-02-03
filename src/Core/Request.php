@@ -107,4 +107,11 @@ class Request
     {
         return $this->routeParams[$key] ?? $default;
     }
+
+    public function wantsJson(): bool
+    {
+        $accept = $this->getHeader('Accept') ?? '';
+
+        return str_contains($accept, 'application/json');
+    }
 }
