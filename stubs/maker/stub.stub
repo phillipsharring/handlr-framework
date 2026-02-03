@@ -1,0 +1,16 @@
+<?php
+
+declare(strict_types=1);
+
+// TODO: Add namespace and use statements as needed
+
+/**
+ * {{studlyName}}: %%className%%
+ */
+class %%className%%
+{
+    public function __construct()
+    {
+        // TODO: Implement constructor
+    }
+}

@@ -1,0 +1,19 @@
+<?php
+
+namespace {{namespace}};
+
+use Handlr\Pipes\Pipe;
+use Handlr\Request;
+use Handlr\Response;
+
+class {{className}}Pipe implements Pipe
+{
+    public function handle(Request $request): Response
+    {
+        $input = $request->asInput({{className}}Input::class);
+        $handler = new {{className}}Handler();
+        $result = $handler->handle($input);
+
+        return $result?->toResponse() ?? Response::json(['status' => 'no result']);
+    }
+}

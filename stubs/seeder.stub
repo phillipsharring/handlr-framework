@@ -1,0 +1,19 @@
+<?php
+
+declare(strict_types=1);
+
+// TODO: Update these use statements to match your Table classes
+// use App\YourDomain\{{StudlyName}}Table;
+
+return [
+    // {{StudlyName}}Table::class => [
+    //     [
+    //         // 'field' => 'value',
+    //         '_relations' => [
+    //             // RelatedTable::class => [
+    //             //     ['field' => 'value'],
+    //             // ],
+    //         ],
+    //     ],
+    // ],
+];

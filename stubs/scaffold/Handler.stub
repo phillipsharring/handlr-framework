@@ -1,0 +1,16 @@
+<?php
+
+namespace {{namespace}};
+
+use Handlr\Handlers\Handler;
+use Handlr\Handlers\HandlerInput;
+use Handlr\Handlers\HandlerResult;
+
+class {{className}}Handler implements Handler
+{
+    public function handle(array|HandlerInput $input): ?HandlerResult
+    {
+        // TODO: Implement logic
+        return HandlerResult::ok(['message' => '{{className}} executed']);
+    }
+}

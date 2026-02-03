@@ -1,0 +1,85 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Handlr\Generator\Makers;
+
+use Handlr\Generator\GeneratedFile;
+use Handlr\Generator\MakerInterface;
+use Symfony\Component\Console\Input\InputArgument;
+use Symfony\Component\Console\Input\InputInterface;
+
+/**
+ * Generates {{studlyName}} files.
+ *
+ * ## Usage
+ *
+ * ```bash
+ * php make.php make:{{commandName}} MyName
+ * ```
+ *
+ * ## Output
+ *
+ * Creates: `path/to/{{commandName}}s/my_name.php` (adjust as needed)
+ */
+class {{className}} implements MakerInterface
+{
+    public function name(): string
+    {
+        return '{{commandName}}';
+    }
+
+    public function description(): string
+    {
+        return 'Create a new {{studlyName}}';
+    }
+
+    public function arguments(): array
+    {
+        return [
+            ['name', InputArgument::REQUIRED, 'The {{commandName}} name'],
+        ];
+    }
+
+    public function options(): array
+    {
+        return [];
+    }
+
+    public function generate(InputInterface $input, string $stubsPath): array
+    {
+        $name = trim($input->getArgument('name'));
+
+        // Convert to StudlyCase for class name
+        $studly = $this->toStudlyCase($name);
+
+        // Convert to snake_case for filename
+        $snakeName = $this->toSnakeCase($name);
+        $filename = $snakeName . '.php';
+
+        // TODO: Adjust the output path as needed
+        $path = getcwd() . '/{{commandName}}s/' . $filename;
+
+        $stub = file_get_contents($stubsPath . '/{{commandName}}.stub');
+        $content = str_replace(
+            ['%%className%%', '%%name%%'],
+            [$studly, $name],
+            $stub
+        );
+
+        return [
+            new GeneratedFile($path, $content),
+        ];
+    }
+
+    private function toStudlyCase(string $value): string
+    {
+        return str_replace(' ', '', ucwords(str_replace(['_', '-'], ' ', strtolower($value))));
+    }
+
+    private function toSnakeCase(string $value): string
+    {
+        $snake = preg_replace('/([a-z])([A-Z])/', '$1_$2', $value);
+        return strtolower(preg_replace('/[\s-]+/', '_', $snake));
+    }
+}

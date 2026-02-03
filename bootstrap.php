@@ -2,30 +2,25 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/src/Support/path-helpers.php';
+
 // Framework package root (this directory). When installed via Composer, this is typically:
 // <app>/vendor/phillipsharring/handlr-framework
 const HANDLR_ROOT = __DIR__;
 
-// When installed via Composer, the app root is 3 levels up from HANDLR_ROOT.
-// In this monorepo, that assumption is not always true, so fall back to getcwd().
-$computedAppRoot = realpath(HANDLR_ROOT . '/../../..') ?: (HANDLR_ROOT . '/../../..');
-$cwdAppRoot = getcwd() ?: '';
+// The framework's own bootstrap.php (this file) - used to distinguish from app bootstrap
+$frameworkBootstrap = realpath(__FILE__);
 
-$frameworkBootstrap = realpath(HANDLR_ROOT . '/bootstrap.php') ?: (HANDLR_ROOT . '/bootstrap.php');
+// Find the app root by walking up from cwd looking for a bootstrap.php that isn't this file
+$appRoot = findInParentDirectories(getcwd() ?: __DIR__, function ($dir) use ($frameworkBootstrap) {
+    $bootstrapPath = realpath("$dir/bootstrap.php");
+    return $bootstrapPath && $bootstrapPath !== $frameworkBootstrap;
+});
 
-$isValidAppRoot = static function (string $root) use ($frameworkBootstrap): bool {
-    $bootstrapPath = realpath($root . '/bootstrap.php') ?: ($root . '/bootstrap.php');
-    return is_file($bootstrapPath) && $bootstrapPath !== $frameworkBootstrap;
-};
-
-$appRoot = (is_string($computedAppRoot) && $isValidAppRoot($computedAppRoot))
-    ? $computedAppRoot
-    : ((is_string($cwdAppRoot) && $isValidAppRoot($cwdAppRoot)) ? $cwdAppRoot : null);
-
-if (!is_string($appRoot)) {
+if ($appRoot === null) {
     throw new RuntimeException(
         'Unable to locate app bootstrap.php. '
-            . 'Run this from your app root (where bootstrap.php exists), or install the framework via Composer.'
+        . 'Run this from your app root (where bootstrap.php exists), or install the framework via Composer.'
     );
 }
 

@@ -1,0 +1,21 @@
+<?php
+
+declare(strict_types=1);
+
+use PHPUnit\Framework\TestCase;
+
+class {{className}}Test extends TestCase
+{
+    public function testHandlerReturnsExpectedResult(): void
+    {
+        $handler = new App\{{name}}\{{className}}Handler();
+        $input = new App\{{name}}\{{className}}Input([
+            // TODO: Fill with test input
+        ]);
+
+        $result = $handler->handle($input);
+
+        $this->assertNotNull($result);
+        $this->assertTrue($result->ok);
+    }
+}
