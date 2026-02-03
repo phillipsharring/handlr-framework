@@ -11,44 +11,111 @@ use ReflectionException;
 use ReflectionParameter;
 use ReflectionUnionType;
 
-final class Container implements ContainerInterface
+/**
+ * Dependency injection container with auto-wiring support.
+ *
+ * Automatically resolves class dependencies via constructor injection.
+ * Supports bindings, singletons, factories, and aliases.
+ *
+ * DEVELOPER USAGE:
+ *
+ * GETTING SERVICES (most common):
+ * @example Resolve a class (auto-wired):
+ *     $userService = $container->get(UserService::class);
+ *     // Dependencies are automatically injected via constructor
+ *
+ * @example Resolve an interface (requires binding):
+ *     $logger = $container->get(LoggerInterface::class);
+ *
+ * REGISTERING SERVICES:
+ * @example Bind interface to implementation:
+ *     $container->bind(LoggerInterface::class, FileLogger::class);
+ *     // Now get(LoggerInterface::class) returns a new FileLogger each time
+ *
+ * @example Register a singleton (same instance every time):
+ *     $container->singleton(Config::class, new Config($data));
+ *     // Or let container create it:
+ *     $container->singleton(Config::class);
+ *
+ * @example Register a factory (custom creation logic):
+ *     $container->factory(DbConnection::class, function() {
+ *         return new DbConnection($_ENV['DB_HOST'], $_ENV['DB_NAME']);
+ *     });
+ *
+ * @example Create an alias:
+ *     $container->alias('db', DbConnection::class);
+ *     $db = $container->get('db'); // Same as get(DbConnection::class)
+ *
+ * INJECTION METHODS:
+ * The container supports two special methods on classes:
+ *
+ * @example inject() - Alternative to constructor injection:
+ *     class MyHandler {
+ *         private UserService $users;
+ *         public function inject(UserService $users): void {
+ *             $this->users = $users;
+ *         }
+ *     }
+ *
+ * @example init() - Called after all injection is complete:
+ *     class MyService {
+ *         public function init(): void {
+ *             // Setup logic after dependencies are injected
+ *         }
+ *     }
+ *
+ * RESOLVING THE CONTAINER ITSELF:
+ * @example Inject the container (use sparingly):
+ *     class ServiceLocator {
+ *         public function __construct(private Container $container) {}
+ *     }
+ */
+class Container implements ContainerInterface
 {
+    /** @var string Method name for post-injection initialization */
     public const INIT_METHOD   = 'init';
+
+    /** @var string Method name for setter-style dependency injection */
     public const INJECT_METHOD = 'inject';
 
-    /**
-     * Stores interface to concrete class bindings (string interface, string concrete)
-     * or functions that will return a class (lazy load behavior)
-     */
+    /** @var array<string, string> Interface/abstract to concrete class bindings */
     private array $bindings = [];
 
-    /**
-     * Stores instances of already resolved classes that should only be instantiated once (singleton behavior)
-     */
+    /** @var array<string, object> Singleton instances (same instance returned every time) */
     private array $singletons = [];
 
-    /**
-     * Stores callable functions (lazy loading behavior)
-     */
+    /** @var array<string, callable> Factory callables (invoked each time to create new instance) */
     private array $factories = [];
 
-    /**
-     * Stores alias-to-abstract mappings. An alias can point to an interface,
-     * in bindings or a singleton instance
-     */
+    /** @var array<string, string> Alias to target mappings (shorthand names for services) */
     private array $aliases = [];
 
-
+    /** @var array<string, bool> Currently resolving classes (for circular dependency detection) */
     private array $resolving = [];
 
     /**
-     * Binds an abstract class or interface to a concrete class.
-     * This creates a mapping from an interface or abstract class to a concrete class implementation.
+     * Bind an abstract class or interface to a concrete implementation.
+     *
+     * This is the primary method for configuring the container. The binding
+     * behavior depends on what you pass as $concrete:
+     * - String class name: Creates new instance each time (standard binding)
+     * - Object instance: Registers as singleton (same instance every time)
+     * - Callable: Registers as factory (called each time to create instance)
      *
      * @param string $abstract The abstract class or interface to bind
-     * @param string|object|callable $concrete The concrete class to which the abstract is bound, or an instance, or lazy loader
+     * @param string|object|callable $concrete Class name, instance, or factory
+     * @return ContainerInterface Fluent interface
      *
      * @throws ContainerException If the abstract or concrete class does not exist
+     *
+     * @example Bind interface to class (new instance each get()):
+     *     $container->bind(CacheInterface::class, RedisCache::class);
+     *
+     * @example Bind with pre-created instance (singleton):
+     *     $container->bind(Config::class, new Config($settings));
+     *
+     * @example Bind with factory (custom creation):
+     *     $container->bind(Logger::class, fn() => new Logger($path));
      */
     public function bind(string $abstract, string|object|callable $concrete): ContainerInterface
     {
@@ -86,13 +153,24 @@ final class Container implements ContainerInterface
     }
 
     /**
-     * Creates an alias for an interface -> concrete binding.
+     * Create an alias for a class or interface.
      *
-     * @param string $alias The alias name to create
-     * @param string $target The target, usually an interface that will be bound
-     *                       to a concrete but could also alias a concrete class.
+     * Aliases provide shorthand names for services. The alias can be created
+     * before or after the target is bound.
      *
-     * @throws ContainerException If the alias does not exist in bindings
+     * @param string $alias The alias name (can be any string)
+     * @param string $target The target class or interface
+     * @return ContainerInterface Fluent interface
+     *
+     * @throws ContainerException If the target class/interface does not exist
+     *
+     * @example Create shorthand alias:
+     *     $container->alias('db', DatabaseConnection::class);
+     *     $db = $container->get('db');
+     *
+     * @example Alias an interface:
+     *     $container->bind(CacheInterface::class, RedisCache::class);
+     *     $container->alias('cache', CacheInterface::class);
      */
     public function alias(string $alias, string $target): ContainerInterface
     {
@@ -106,14 +184,34 @@ final class Container implements ContainerInterface
     }
 
     /**
-     * Returns a new instance of the class or interface associated with the alias.
-     * This method always returns a fresh instance, resolving dependencies as needed.
+     * Resolve and return an instance of a class or interface.
+     *
+     * THIS IS THE PRIMARY METHOD FOR RETRIEVING SERVICES.
+     *
+     * Behavior depends on how the service is registered:
+     * - Singleton: Returns the same instance every time
+     * - Factory: Calls the factory each time (new instance)
+     * - Binding: Creates new instance with auto-wired dependencies
+     * - No registration: Auto-wires the class directly
      *
      * @template T
      * @param class-string<T> $alias The class, interface, or alias to resolve
-     * @return T The newly created instance
+     * @return T The resolved instance
      *
      * @throws ContainerException If the class cannot be instantiated
+     *
+     * @example Get a service:
+     *     $userService = $container->get(UserService::class);
+     *
+     * @example Get via interface (must be bound first):
+     *     $cache = $container->get(CacheInterface::class);
+     *
+     * @example Get via alias:
+     *     $db = $container->get('db');
+     *
+     * @example Auto-wire a class (no binding needed):
+     *     // If UserController has typed constructor params, they're auto-resolved
+     *     $controller = $container->get(UserController::class);
      */
     public function get(string $alias): mixed
     {
@@ -121,19 +219,37 @@ final class Container implements ContainerInterface
     }
 
     /**
-     * Stores an instance associated with the alias as a "singleton"
-     * If no instance is passed, it will be instantiated.
-     * The object passed doesn't need to be a "true" singleton, only that the
-     * container will always return the _same_ instance, as opposed to a
-     * string interface -> string concrete binding, or a lazy  loading, both
-     * of which will return a new instance every time
+     * Register or retrieve a singleton instance.
+     *
+     * Ensures only one instance exists for the given alias. If called with
+     * an object, registers it. If called without, creates and registers one.
+     * Subsequent calls always return the same instance.
+     *
+     * Use singletons for:
+     * - Services that maintain state (database connections, caches)
+     * - Expensive-to-create objects
+     * - Services that should be shared across the application
      *
      * @template T
-     * @param class-string<T> $alias The class, interface, or alias to resolve as a singleton
-     * @param null|object $object An already instantiated instance object
+     * @param class-string<T> $alias The class or interface to register
+     * @param object|null $object Optional pre-created instance to register
      * @return T The singleton instance
      *
      * @throws ContainerException If the class cannot be instantiated
+     *
+     * @example Register with pre-created instance:
+     *     $container->singleton(Config::class, new Config($data));
+     *
+     * @example Register and let container create it:
+     *     $container->singleton(DatabaseConnection::class);
+     *     // First call creates instance, subsequent calls return same instance
+     *
+     * @example Register interface singleton:
+     *     $container->bind(SessionInterface::class, DatabaseSession::class);
+     *     $container->singleton(SessionInterface::class);
+     *
+     * @example Retrieve existing singleton:
+     *     $config = $container->singleton(Config::class); // Returns same instance
      */
     public function singleton(string $alias, ?object $object = null): object
     {
@@ -147,6 +263,34 @@ final class Container implements ContainerInterface
         return $this->singletons[$abstract];
     }
 
+    /**
+     * Register a factory for creating instances.
+     *
+     * The factory callable is invoked each time the service is resolved,
+     * creating a new instance every time. Use for services that need
+     * custom creation logic or should not be shared.
+     *
+     * @param string $alias The class or interface to register
+     * @param callable $callable Factory function that returns an instance
+     *
+     * @example Factory with environment config:
+     *     $container->factory(DbConnection::class, function() {
+     *         return new DbConnection(
+     *             $_ENV['DB_HOST'],
+     *             $_ENV['DB_NAME'],
+     *             $_ENV['DB_USER'],
+     *             $_ENV['DB_PASS']
+     *         );
+     *     });
+     *
+     * @example Factory using container for dependencies:
+     *     $container->factory(ReportGenerator::class, function() use ($container) {
+     *         return new ReportGenerator(
+     *             $container->get(DataSource::class),
+     *             $container->get(TemplateEngine::class)
+     *         );
+     *     });
+     */
     public function factory(string $alias, callable $callable): void
     {
         $this->factories[$alias] = $callable;
@@ -472,21 +616,41 @@ final class Container implements ContainerInterface
         return new $class();
     }
 
+    /**
+     * Get all registered bindings (for debugging/testing).
+     *
+     * @return array<string, string> Map of abstract => concrete class names
+     */
     public function getBindings(): array
     {
         return $this->bindings;
     }
 
+    /**
+     * Get all registered singletons (for debugging/testing).
+     *
+     * @return array<string, object> Map of abstract => instance
+     */
     public function getSingletons(): array
     {
         return $this->singletons;
     }
 
+    /**
+     * Get all registered factories (for debugging/testing).
+     *
+     * @return array<string, callable> Map of abstract => factory callable
+     */
     public function getFactories(): array
     {
         return $this->factories;
     }
 
+    /**
+     * Get all registered aliases (for debugging/testing).
+     *
+     * @return array<string, string> Map of alias => target
+     */
     public function getAliases(): array
     {
         return $this->aliases;

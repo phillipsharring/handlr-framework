@@ -4,6 +4,13 @@ declare(strict_types=1);
 
 namespace Handlr\Core\Container;
 
+/**
+ * Dependency injection container interface.
+ *
+ * Defines the contract for binding, resolving, and managing service instances.
+ *
+ * @see Container For the concrete implementation
+ */
 interface ContainerInterface
 {
     /**
