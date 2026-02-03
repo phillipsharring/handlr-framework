@@ -15,6 +15,10 @@
  *   php make.php make:table Auth/Users --record=UserRecord
  *   php make.php make:handler CreateUser
  *   php make.php make:handler Auth/CreateUser
+ *   php make.php make:pipe ListUsers
+ *   php make.php make:pipe CreateUser --post
+ *   php make.php make:pipe UpdateUser --patch
+ *   php make.php make:pipe DeleteUser --delete
  *
  * Run without arguments to see available commands:
  *   php make.php
@@ -35,6 +39,7 @@ use Handlr\Generator\GeneratorRunner;
 use Handlr\Generator\Makers\HandlerMaker;
 use Handlr\Generator\Makers\MakerMaker;
 use Handlr\Generator\Makers\MigrationMaker;
+use Handlr\Generator\Makers\PipeMaker;
 use Handlr\Generator\Makers\RecordMaker;
 use Handlr\Generator\Makers\ScaffoldMaker;
 use Handlr\Generator\Makers\SeederMaker;
@@ -47,6 +52,7 @@ $runner
     ->register(new HandlerMaker())
     ->register(new MakerMaker())
     ->register(new MigrationMaker())
+    ->register(new PipeMaker())
     ->register(new RecordMaker())
     ->register(new ScaffoldMaker())
     ->register(new SeederMaker())

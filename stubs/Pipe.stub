@@ -1,0 +1,51 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{namespace}};
+
+use Handlr\Api\Presenter;
+use Handlr\Core\Request;
+use Handlr\Core\Response;
+use Handlr\Pipes\Pipe;
+
+/**
+ * {{method}} request handler.
+ *
+ * Pipes handle HTTP requests, validate input, call handlers,
+ * and return responses.
+ */
+class {{className}} implements Pipe
+{
+    public function __construct(
+        private Presenter $presenter,
+        // Inject your dependencies here:
+        // private SomeHandler $handler,
+        // private ValidatedInputFactory $factory,
+    ) {}
+
+    public function handle(Request $request, Response $response, array $args, callable $next): Response
+    {
+        // Validate input (if needed):
+        // [$input, $errors] = $this->factory->makeValidatedInput(
+        //     $request,
+        //     SomeInput::class,
+        //     'validate'
+        // );
+        // if ($errors) {
+        //     return $response->withStatus(Response::HTTP_UNPROCESSABLE_ENTITY)
+        //         ->withJson($this->presenter->validationError('Validation failed.', $errors));
+        // }
+
+        // Call handler (if needed):
+        // $result = $this->handler->handle($input);
+        // if (!$result->success) {
+        //     return $response->withStatus(Response::HTTP_UNPROCESSABLE_ENTITY)
+        //         ->withJson($this->presenter->invariantError($result->errors[0] ?? 'Operation failed.'));
+        // }
+
+        // Return response:
+        return $response->withStatus(Response::HTTP_OK)
+            ->withJson($this->presenter->success('Request handled successfully.'));
+    }
+}
