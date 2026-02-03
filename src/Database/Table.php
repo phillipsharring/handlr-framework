@@ -8,6 +8,105 @@ use InvalidArgumentException;
 use PDO;
 use RuntimeException;
 
+/**
+ * Abstract base class for database table access.
+ *
+ * Provides CRUD operations, pagination, and flexible querying with automatic
+ * UUID handling. Extend this class and define `$tableName` and `$recordClass`
+ * properties to create a table gateway.
+ *
+ * ## Extending this class
+ *
+ * ```php
+ * class UsersTable extends Table
+ * {
+ *     protected string $tableName = 'users';
+ *     protected string $recordClass = UserRecord::class;
+ * }
+ * ```
+ *
+ * ## Conditions syntax
+ *
+ * Conditions are passed as associative arrays to `findWhere()`, `findFirst()`,
+ * `paginate()`, and `count()`. Several formats are supported:
+ *
+ * **Simple equality:**
+ * ```php
+ * ['status' => 'active']                    // status = 'active'
+ * ['id' => 123]                             // id = 123
+ * ```
+ *
+ * **NULL check:**
+ * ```php
+ * ['deleted_at' => null]                    // deleted_at IS NULL
+ * ```
+ *
+ * **Comparison operators (indexed array, operator first):**
+ * ```php
+ * ['age' => ['>=', 18]]                     // age >= 18
+ * ['status' => ['<>', 'deleted']]           // status <> 'deleted'
+ * ['name' => ['!=', 'admin']]               // name != 'admin'
+ * ```
+ *
+ * **Comparison operators (indexed array, value first):**
+ * ```php
+ * ['age' => [18, '>=']]                     // age >= 18
+ * ```
+ *
+ * **Comparison operators (associative array):**
+ * ```php
+ * ['age' => ['operator' => '>=', 'value' => 18]]
+ * ```
+ *
+ * **BETWEEN:**
+ * ```php
+ * ['created_at' => ['BETWEEN', '2025-01-01', '2025-12-31']]
+ * // or associative:
+ * ['created_at' => ['operator' => 'BETWEEN', 'value' => ['2025-01-01', '2025-12-31']]]
+ * ```
+ *
+ * **IN / NOT IN:**
+ * ```php
+ * ['status' => ['IN', ['active', 'pending']]]
+ * ['role' => ['NOT IN', ['banned', 'suspended']]]
+ * ```
+ *
+ * **LIKE / NOT LIKE:**
+ * ```php
+ * ['email' => ['LIKE', '%@example.com']]
+ * ['name' => ['NOT LIKE', 'test%']]
+ * ```
+ *
+ * Supported operators: `=`, `!=`, `<>`, `>`, `<`, `>=`, `<=`, `LIKE`, `NOT LIKE`,
+ * `BETWEEN`, `IN`, `NOT IN`
+ *
+ * ## Order by syntax
+ *
+ * Order by clauses are passed as an array of indexed arrays (NOT associative):
+ *
+ * ```php
+ * // Single column, descending
+ * [['created_at', 'DESC']]
+ *
+ * // Multiple columns
+ * [['status', 'ASC'], ['created_at', 'DESC']]
+ *
+ * // Direction defaults to ASC if omitted
+ * [['name']]  // equivalent to [['name', 'ASC']]
+ *
+ * // Table-qualified columns are supported
+ * [['users.created_at', 'DESC']]
+ * ```
+ *
+ * **WARNING:** Do NOT use associative arrays for order by:
+ * ```php
+ * // WRONG - will throw an exception:
+ * ['created_at' => 'DESC']
+ *
+ * // CORRECT:
+ * [['created_at', 'DESC']]
+ * ```
+ */
 abstract class Table
 {
     protected string $tableName;
@@ -21,7 +120,11 @@ abstract class Table
     private array $uuidColumnsCache = [];
 
     /**
-     * @throws DatabaseException
+     * Create a new table gateway instance.
+     *
+     * @param DbInterface $db Database connection instance
+     *
+     * @throws DatabaseException If $tableName or $recordClass are not defined in the child class
      */
     public function __construct(protected DbInterface $db)
     {
@@ -32,6 +135,23 @@ abstract class Table
         }
     }
 
+    /**
+     * Find a single record by its primary key.
+     *
+     * Automatically handles UUID-to-binary conversion for UUID-based records.
+     *
+     * ```php
+     * // Integer ID
+     * $user = $usersTable->findById(123);
+     *
+     * // UUID (string)
+     * $user = $usersTable->findById('550e8400-e29b-41d4-a716-446655440000');
+     * ```
+     *
+     * @param int|string $id The record ID (integer or UUID string)
+     *
+     * @return Record|null The record if found, null otherwise
+     */
     public function findById(int|string $id): ?Record
     {
         $recordInstance = $this->getRecordInstance();
@@ -51,11 +171,36 @@ abstract class Table
     }
 
     /**
-     * Find first record matching conditions.
+     * Find the first record matching conditions.
      *
-     * @param array $columns    Columns to select (empty = all)
-     * @param array $conditions Where conditions
-     * @param array $orderBy    Order by as indexed arrays: [['column', 'DESC']] - NOT associative!
+     * Returns a single record or null. Useful for lookups where you expect
+     * at most one result, or when you only need the first match.
+     *
+     * ```php
+     * // Find by email
+     * $user = $usersTable->findFirst([], ['email' => 'user@example.com']);
+     *
+     * // Find most recent active user
+     * $user = $usersTable->findFirst(
+     *     [],
+     *     ['status' => 'active'],
+     *     [['created_at', 'DESC']]
+     * );
+     *
+     * // Select specific columns only
+     * $user = $usersTable->findFirst(
+     *     ['id', 'email', 'name'],
+     *     ['status' => 'active']
+     * );
+     * ```
+     *
+     * @param string[] $columns    Columns to select (empty array = all columns)
+     * @param array    $conditions Where conditions (see class docblock for syntax)
+     * @param array    $orderBy    Order by as indexed arrays: `[['column', 'DESC']]` - NOT associative!
+     *
+     * @return Record|null The first matching record, or null if none found
+     *
+     * @throws DatabaseException On invalid column names or operators
      */
     public function findFirst(array $columns = [], array $conditions = [], array $orderBy = []): ?Record
     {
@@ -63,14 +208,52 @@ abstract class Table
     }
 
     /**
-     * Find records matching conditions.
+     * Find all records matching conditions.
      *
-     * @param array $columns    Columns to select (empty = all)
-     * @param array $conditions Where conditions as ['column' => 'value'] or ['column' => ['op', 'value']]
-     * @param array $orderBy    Order by clauses as indexed arrays: [['column', 'DESC'], ['other_column', 'ASC']]
-     *                          NOT associative! Use ['created_at', 'DESC'] not ['created_at' => 'DESC']
-     * @param int|null $limit   Max rows to return
-     * @return Record[]
+     * The primary query method supporting flexible conditions, column selection,
+     * ordering, and optional limit.
+     *
+     * ```php
+     * // Find all active users
+     * $users = $usersTable->findWhere([], ['status' => 'active']);
+     *
+     * // Find users created in 2025, ordered by name
+     * $users = $usersTable->findWhere(
+     *     [],
+     *     ['created_at' => ['BETWEEN', '2025-01-01', '2025-12-31']],
+     *     [['name', 'ASC']]
+     * );
+     *
+     * // Find users with specific roles, limit to 10
+     * $users = $usersTable->findWhere(
+     *     ['id', 'name', 'email'],
+     *     ['role' => ['IN', ['admin', 'moderator']]],
+     *     [['created_at', 'DESC']],
+     *     10
+     * );
+     *
+     * // Complex conditions
+     * $users = $usersTable->findWhere(
+     *     [],
+     *     [
+     *         'status' => 'active',
+     *         'age' => ['>=', 18],
+     *         'deleted_at' => null,
+     *         'email' => ['LIKE', '%@company.com'],
+     *     ],
+     *     [['last_login', 'DESC'], ['name', 'ASC']]
+     * );
+     * ```
+     *
+     * @param string[] $columns    Columns to select (empty array = all columns)
+     * @param array    $conditions Where conditions (see class docblock for full syntax)
+     * @param array    $orderBy    Order by as indexed arrays: `[['column', 'DESC'], ['other', 'ASC']]`
+     *                             **NOT associative!** Use `[['created_at', 'DESC']]` not `['created_at' => 'DESC']`
+     * @param int|null $limit      Maximum number of rows to return (null = no limit)
+     *
+     * @return Record[] Array of matching records (empty array if none found)
+     *
+     * @throws DatabaseException On invalid column names, operators, or malformed conditions
      */
     public function findWhere(array $columns = [], array $conditions = [], array $orderBy = [], ?int $limit = null): array
     {
@@ -95,9 +278,61 @@ abstract class Table
     }
 
     /**
-     * Returns paginated results in the form:
-     *  - data: Record[]
-     *  - meta: pagination metadata (counts/pages/range)
+     * Retrieve paginated results with metadata.
+     *
+     * Returns an array with `data` (records) and `meta` (pagination info).
+     * Automatically calculates total count, page ranges, and navigation helpers.
+     *
+     * ```php
+     * // Basic pagination
+     * $result = $usersTable->paginate([], [], 1, 25);
+     *
+     * // Paginate with conditions and ordering
+     * $result = $usersTable->paginate(
+     *     ['id', 'name', 'email'],
+     *     ['status' => 'active'],
+     *     2,                           // page 2
+     *     10,                          // 10 per page
+     *     [['created_at', 'DESC']]
+     * );
+     *
+     * // Access results
+     * foreach ($result['data'] as $user) {
+     *     echo $user->name;
+     * }
+     *
+     * // Access pagination metadata
+     * $meta = $result['meta'];
+     * echo "Page {$meta['current_page']} of {$meta['last_page']}";
+     * echo "Showing {$meta['from']}-{$meta['to']} of {$meta['total']}";
+     * if ($meta['has_more_pages']) {
+     *     echo "Next page: {$meta['next_page']}";
+     * }
+     * ```
+     *
+     * @param string[] $columns    Columns to select (empty array = all columns)
+     * @param array    $conditions Where conditions (see class docblock for syntax)
+     * @param int      $page       Page number (1-indexed, defaults to 1)
+     * @param int      $perPage    Records per page (defaults to 25)
+     * @param array    $orderBy    Order by as indexed arrays: `[['column', 'DESC']]` - NOT associative!
+     *
+     * @return array{
+     *     data: Record[],
+     *     meta: array{
+     *         current_page: int,
+     *         per_page: int,
+     *         total: int,
+     *         last_page: int,
+     *         from: int,
+     *         to: int,
+     *         count: int,
+     *         has_more_pages: bool,
+     *         next_page: int|null,
+     *         prev_page: int|null
+     *     }
+     * }
+     *
+     * @throws DatabaseException On invalid column names or operators
      */
     public function paginate(array $columns = [], array $conditions = [], int $page = 1, int $perPage = 25, array $orderBy = []): array
     {
@@ -173,7 +408,33 @@ abstract class Table
     }
 
     /**
-     * Count records matching conditions (same condition syntax as findWhere/paginate).
+     * Count records matching conditions.
+     *
+     * Uses the same condition syntax as `findWhere()` and `paginate()`.
+     *
+     * ```php
+     * // Count all records
+     * $total = $usersTable->count();
+     *
+     * // Count active users
+     * $activeCount = $usersTable->count(['status' => 'active']);
+     *
+     * // Count users created this year
+     * $thisYear = $usersTable->count([
+     *     'created_at' => ['>=', '2025-01-01']
+     * ]);
+     *
+     * // Count users with specific roles
+     * $admins = $usersTable->count([
+     *     'role' => ['IN', ['admin', 'superadmin']]
+     * ]);
+     * ```
+     *
+     * @param array $conditions Where conditions (see class docblock for syntax)
+     *
+     * @return int Number of matching records
+     *
+     * @throws DatabaseException On invalid column names or operators
      */
     public function count(array $conditions = []): int
     {
@@ -185,7 +446,28 @@ abstract class Table
     /**
      * Insert a new record into the database.
      *
-     * @return int|string Inserted record ID (int for auto-increment, string for UUID)
+     * For auto-increment tables, the record's `id` property is updated with the
+     * generated ID after insert. For UUID tables, the record retains its string UUID.
+     *
+     * ```php
+     * // Insert with auto-increment ID
+     * $user = new UserRecord(['name' => 'John', 'email' => 'john@example.com']);
+     * $usersTable->insert($user);
+     * echo $user->id; // e.g., 42
+     *
+     * // Insert UUID-based record (ID already set)
+     * $user = new UserRecord([
+     *     'id' => '550e8400-e29b-41d4-a716-446655440000',
+     *     'name' => 'Jane'
+     * ]);
+     * $usersTable->insert($user);
+     * ```
+     *
+     * @param Record $record The record to insert
+     *
+     * @return Record The inserted record (with ID populated for auto-increment)
+     *
+     * @throws InvalidArgumentException If $record is not an object
      */
     public function insert($record)
     {
@@ -223,11 +505,28 @@ abstract class Table
     /**
      * Insert multiple records in a single query.
      *
-     * @param array $records
-     * @return array
+     * More efficient than multiple `insert()` calls for bulk inserts.
+     * All records must be instances of the same record class.
      *
-     * @throws InvalidArgumentException
-     * @throws RuntimeException
+     * **Note:** For auto-increment tables, inserted IDs are NOT populated
+     * back onto the records (only the first inserted ID is retrievable from
+     * most database drivers). Use `insert()` individually if you need IDs.
+     *
+     * ```php
+     * $users = [
+     *     new UserRecord(['name' => 'Alice', 'email' => 'alice@example.com']),
+     *     new UserRecord(['name' => 'Bob', 'email' => 'bob@example.com']),
+     *     new UserRecord(['name' => 'Charlie', 'email' => 'charlie@example.com']),
+     * ];
+     * $usersTable->insertMany($users);
+     * ```
+     *
+     * @param Record[] $records Array of records to insert (must not be empty)
+     *
+     * @return Record[] The same records array passed in
+     *
+     * @throws InvalidArgumentException If array is empty or contains non-matching record types
+     * @throws RuntimeException On database errors
      */
     public function insertMany(array $records): array
     {
@@ -799,7 +1098,24 @@ abstract class Table
     }
 
     /**
-     * @throws DatabaseException
+     * Update an existing record in the database.
+     *
+     * Updates all persistable fields of the record based on its ID.
+     * The `id`, `created_at`, and `updated_at` fields are automatically excluded
+     * from the update (timestamps should be handled by database triggers or defaults).
+     *
+     * ```php
+     * $user = $usersTable->findById(123);
+     * $user->name = 'New Name';
+     * $user->email = 'new@example.com';
+     * $rowsAffected = $usersTable->update($user);
+     * ```
+     *
+     * @param Record $record The record to update (must have an ID)
+     *
+     * @return int Number of rows affected (0 if record not found, 1 if updated)
+     *
+     * @throws DatabaseException If the record has no ID
      */
     public function update(Record $record): int
     {
@@ -839,7 +1155,22 @@ abstract class Table
     }
 
     /**
-     * @throws DatabaseException
+     * Delete a record from the database.
+     *
+     * Performs a hard delete based on the record's ID.
+     *
+     * ```php
+     * $user = $usersTable->findById(123);
+     * if ($user) {
+     *     $rowsAffected = $usersTable->delete($user);
+     * }
+     * ```
+     *
+     * @param Record $record The record to delete (must have an ID)
+     *
+     * @return int Number of rows affected (0 if not found, 1 if deleted)
+     *
+     * @throws DatabaseException If the record has no ID
      */
     public function delete(Record $record): int
     {
