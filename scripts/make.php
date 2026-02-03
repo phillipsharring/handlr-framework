@@ -13,6 +13,8 @@
  *   php make.php make:record Auth/User --no-uuid
  *   php make.php make:table Users
  *   php make.php make:table Auth/Users --record=UserRecord
+ *   php make.php make:handler CreateUser
+ *   php make.php make:handler Auth/CreateUser
  *
  * Run without arguments to see available commands:
  *   php make.php
@@ -30,6 +32,7 @@ if ($autoloadPath === null) {
 require_once $autoloadPath;
 
 use Handlr\Generator\GeneratorRunner;
+use Handlr\Generator\Makers\HandlerMaker;
 use Handlr\Generator\Makers\MakerMaker;
 use Handlr\Generator\Makers\MigrationMaker;
 use Handlr\Generator\Makers\RecordMaker;
@@ -41,6 +44,7 @@ $stubsPath = dirname(__DIR__) . '/stubs';
 
 $runner = new GeneratorRunner($stubsPath);
 $runner
+    ->register(new HandlerMaker())
     ->register(new MakerMaker())
     ->register(new MigrationMaker())
     ->register(new RecordMaker())

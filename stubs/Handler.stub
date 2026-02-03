@@ -1,0 +1,40 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{namespace}};
+
+use Handlr\Handlers\Handler;
+use Handlr\Handlers\HandlerInput;
+use Handlr\Handlers\HandlerResult;
+
+/**
+ * Handler for business logic.
+ *
+ * Handlers encapsulate business operations, receiving validated input
+ * and returning a HandlerResult. Inject dependencies via constructor.
+ */
+class {{className}} implements Handler
+{
+    public function __construct(
+        private HandlerResult $result,
+        // Inject your dependencies here:
+        // private UsersTable $table,
+        // private UserFactory $factory,
+    ) {}
+
+    public function handle(HandlerInput|array $input): ?HandlerResult
+    {
+        // Implement your business logic here:
+        //
+        // Example: Create a record
+        // $record = $this->factory->makeFromInput($input);
+        // $this->table->insert($record);
+        // return $this->result->ok($record);
+        //
+        // Example: Fail with validation errors
+        // return $this->result->fail(['Something went wrong'], ['id' => $input->id]);
+
+        return $this->result->ok(['message' => 'Handler executed successfully']);
+    }
+}
