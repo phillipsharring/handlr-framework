@@ -1,0 +1,33 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{namespace}};
+
+use Handlr\Database\Table;
+
+/**
+ * Table gateway for the {{tableName}} table.
+ *
+ * Provides CRUD operations, pagination, and flexible querying.
+ * Extend with custom query methods as needed.
+ *
+ * @see \Handlr\Database\Table for full documentation on conditions and ordering
+ */
+class {{className}} extends Table
+{
+    protected string $tableName = '{{tableName}}';
+    protected string $recordClass = {{recordClass}}::class;
+
+    // Add custom query methods here:
+    //
+    // public function findByEmail(string $email): ?{{recordClass}}
+    // {
+    //     return $this->findFirst([], ['email' => $email]);
+    // }
+    //
+    // public function findActive(): array
+    // {
+    //     return $this->findWhere([], ['status' => 'active'], [['created_at', 'DESC']]);
+    // }
+}

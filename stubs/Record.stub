@@ -1,0 +1,64 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{namespace}};
+
+use Handlr\Database\Record;
+
+/**
+ * Record class for database row representation.
+ *
+ * Define public properties for each database column. The Record base class
+ * handles UUID generation, type casting, and JSON serialization.
+ *
+ * @see \Handlr\Database\Record for full documentation
+ */
+class {{className}} extends Record
+{
+    /**
+     * Whether to use UUIDs for the primary key.
+     * Set to false for auto-increment integer IDs.
+     */
+    protected bool $useUuid = {{useUuid}};
+
+    // Define your columns as public properties:
+    // public string $name;
+    // public string $email;
+    // public ?string $bio = null;
+
+    /**
+     * Type casting definitions.
+     *
+     * Supported types: 'bool', 'int', 'float', 'string', 'date'
+     *
+     * @var array<string, string>
+     */
+    protected array $casts = [
+        // 'is_active' => 'bool',
+        // 'view_count' => 'int',
+        // 'created_at' => 'date',
+    ];
+
+    /**
+     * Columns that store UUIDs as BINARY(16) in the database.
+     * Used for foreign key references to other UUID-based tables.
+     *
+     * @var string[]
+     */
+    protected array $uuidColumns = [
+        // 'user_id',
+        // 'organization_id',
+    ];
+
+    /**
+     * Computed columns excluded from database persistence.
+     * Included in toArray() for API responses but not saved.
+     *
+     * @var string[]
+     */
+    protected array $computed = [
+        // 'full_name',
+        // 'comment_count',
+    ];
+}
