@@ -7,7 +7,7 @@ require_once __DIR__ . '/../bootstrap.php';
 use Handlr\Config\Loader;
 use Handlr\Core\Container\Container;
 use Handlr\Database\Db;
-use Handlr\Database\Seeder;
+use Handlr\Database\Migrations\Seeder;
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;

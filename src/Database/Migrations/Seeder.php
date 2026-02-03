@@ -2,8 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Handlr\Database;
+namespace Handlr\Database\Migrations;
 
+use Handlr\Database\DbInterface;
+use Handlr\Database\Record;
+use Handlr\Database\Table;
 use InvalidArgumentException;
 use RuntimeException;
 
