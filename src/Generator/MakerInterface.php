@@ -71,8 +71,24 @@ interface MakerInterface
     /**
      * Argument definitions for the command.
      *
-     * Each element should be an array: [name, mode, description, default?]
-     * Mode should be InputArgument::REQUIRED, OPTIONAL, or IS_ARRAY.
+     * Each element is an array: `[name, mode, description, default?]`
+     *
+     * **Argument modes** (from Symfony\Component\Console\Input\InputArgument):
+     * - `InputArgument::REQUIRED` - argument must be provided
+     * - `InputArgument::OPTIONAL` - argument is optional
+     * - `InputArgument::IS_ARRAY` - argument accepts multiple values
+     *
+     * ```php
+     * public function arguments(): array
+     * {
+     *     return [
+     *         ['name', InputArgument::REQUIRED, 'The widget name'],
+     *         ['extra', InputArgument::OPTIONAL, 'Optional extra info', 'default'],
+     *     ];
+     * }
+     * ```
+     *
+     * Access in generate(): `$input->getArgument('name')`
      *
      * @return array<int, array{0: string, 1: int, 2: string, 3?: mixed}>
      */
@@ -81,8 +97,39 @@ interface MakerInterface
     /**
      * Option definitions for the command.
      *
-     * Each element should be an array: [name, shortcut, mode, description, default?]
-     * Mode should be InputOption::VALUE_NONE, VALUE_REQUIRED, VALUE_OPTIONAL, etc.
+     * Each element is an array: `[name, shortcut, mode, description, default?]`
+     *
+     * **Option modes** (from Symfony\Component\Console\Input\InputOption):
+     * - `InputOption::VALUE_NONE` - flag with no value (e.g., `--verbose`)
+     * - `InputOption::VALUE_REQUIRED` - must have a value (e.g., `--format=json`)
+     * - `InputOption::VALUE_OPTIONAL` - value is optional (e.g., `--config` or `--config=custom.php`)
+     * - `InputOption::VALUE_IS_ARRAY` - can be repeated (e.g., `--exclude=foo --exclude=bar`)
+     *
+     * Modes can be combined: `InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY`
+     *
+     * ```php
+     * public function options(): array
+     * {
+     *     return [
+     *         // Flag (boolean) - no value
+     *         ['verbose', 'v', InputOption::VALUE_NONE, 'Enable verbose output'],
+     *
+     *         // Required value
+     *         ['format', 'f', InputOption::VALUE_REQUIRED, 'Output format', 'json'],
+     *
+     *         // Optional value
+     *         ['config', 'c', InputOption::VALUE_OPTIONAL, 'Config file path'],
+     *
+     *         // Repeatable
+     *         ['exclude', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Paths to exclude'],
+     *     ];
+     * }
+     * ```
+     *
+     * Access in generate():
+     * - Flag: `$input->getOption('verbose')` returns `true` or `false`
+     * - Value: `$input->getOption('format')` returns the value or default
+     * - Array: `$input->getOption('exclude')` returns `string[]`
      *
      * @return array<int, array{0: string, 1: string|null, 2: int, 3: string, 4?: mixed}>
      */

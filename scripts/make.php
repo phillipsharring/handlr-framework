@@ -16,8 +16,14 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/support/require-vendor-autoload.php';
-requireVendorAutoload();
+require_once __DIR__ . '/../src/Support/path-helpers.php';
+
+$autoloadPath = findFileInParents(__DIR__, 'vendor/autoload.php');
+if ($autoloadPath === null) {
+    fwrite(STDERR, "Could not find vendor/autoload.php\n");
+    exit(1);
+}
+require_once $autoloadPath;
 
 use Handlr\Generator\GeneratorRunner;
 use Handlr\Generator\Makers\MakerMaker;
