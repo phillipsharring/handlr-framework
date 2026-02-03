@@ -4,6 +4,13 @@ declare(strict_types=1);
 
 namespace Handlr\Validation\Rules;
 
+/**
+ * Validates that a value is a valid UUIDv7 (time-ordered UUID).
+ *
+ * UUIDv7 is the recommended format for database primary keys (sortable by time).
+ *
+ * Usage: `'uuid7'`
+ */
 class Uuid7Rule extends BaseRule
 {
     // Canonical hyphenated UUIDv7 + correct variant.

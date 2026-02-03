@@ -7,6 +7,15 @@ namespace Handlr\Validation\Rules;
 use Handlr\Core\Kernel;
 use Handlr\Database\Db;
 
+/**
+ * Validates that a value exists in a database table.
+ *
+ * Rule args (positional):
+ * - First arg: table name
+ * - Second arg: column name
+ *
+ * Usage: `'exists|users,id'`, `'exists|categories,slug'`
+ */
 class ExistsRule extends BaseRule
 {
     private Db $db;

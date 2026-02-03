@@ -4,6 +4,13 @@ declare(strict_types=1);
 
 namespace Handlr\Validation\Rules;
 
+/**
+ * Validates that a value is present and non-empty.
+ *
+ * Fails on: `null`, `''` (empty string), `[]` (empty array)
+ *
+ * Usage: `'required'`
+ */
 class RequiredRule extends BaseRule
 {
     public function validate($value, array $ruleArgs, array $data = []): bool

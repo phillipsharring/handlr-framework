@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Handlr\Validation\Rules;
 
+/**
+ * Validates that a value is a valid email address using PHP's FILTER_VALIDATE_EMAIL.
+ *
+ * Usage: `'email'`
+ */
 class EmailRule extends BaseRule
 {
     public function validate($value, array $ruleArgs = [], array $data = []): bool

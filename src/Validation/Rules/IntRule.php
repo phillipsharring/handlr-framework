@@ -4,6 +4,17 @@ declare(strict_types=1);
 
 namespace Handlr\Validation\Rules;
 
+/**
+ * Validates that a value is an integer with optional value bounds.
+ *
+ * Accepts numeric strings (e.g., '25' passes since HTTP input is always string).
+ *
+ * Rule args:
+ * - `min` - Minimum allowed value
+ * - `max` - Maximum allowed value
+ *
+ * Usage: `'int'`, `'int|min:0'`, `'int|max:100'`, `'int|min:1,max:10'`
+ */
 class IntRule extends BaseRule
 {
     public function validate($value, array $ruleArgs = [], array $data = []): bool

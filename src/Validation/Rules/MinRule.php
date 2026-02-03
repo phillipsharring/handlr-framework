@@ -4,6 +4,15 @@ declare(strict_types=1);
 
 namespace Handlr\Validation\Rules;
 
+/**
+ * Validates that a numeric value is at least a minimum value.
+ *
+ * Takes the minimum as the first positional arg (required).
+ *
+ * Usage: `'min|5'`, `'min|0'`, `'min|100'`
+ *
+ * @throws RuleException If minimum value is not provided or not numeric
+ */
 class MinRule extends BaseRule
 {
     public function validate($value, array $ruleArgs = [], array $data = []): bool

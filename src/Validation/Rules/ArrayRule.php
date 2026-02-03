@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Handlr\Validation\Rules;
 
+/**
+ * Validates that a value is an array. Also accepts valid JSON strings.
+ *
+ * Usage: `'array'`
+ */
 class ArrayRule extends BaseRule
 {
     public function validate($value, array $ruleArgs = [], array $data = []): bool

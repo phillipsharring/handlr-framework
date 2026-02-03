@@ -4,10 +4,18 @@ declare(strict_types=1);
 
 namespace Handlr\Validation\Rules;
 
-use App\Auth\UsersTable;
 use Handlr\Core\Kernel;
 use Handlr\Database\Db;
 
+/**
+ * Validates that a value does not already exist in a database table.
+ *
+ * Rule args (positional):
+ * - First arg: table name
+ * - Second arg: column name
+ *
+ * Usage: `'unique|users,email'`, `'unique|posts,slug'`
+ */
 class UniqueRule extends BaseRule
 {
     public function __construct(private readonly Db $db) {}

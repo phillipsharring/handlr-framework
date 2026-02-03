@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Handlr\Validation\Sanitizers;
 
+/**
+ * Sanitizes values to integers.
+ *
+ * Strips non-numeric characters and truncates decimals (e.g., '123.45' → 123).
+ */
 class IntSanitizer implements Sanitizer
 {
     public function sanitize($value, array $ruleArgs = []): int

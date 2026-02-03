@@ -6,6 +6,14 @@ namespace Handlr\Validation\Rules;
 
 use DateTime;
 
+/**
+ * Validates that a value is a valid date string.
+ *
+ * Rule args:
+ * - `format` - Date format (default: `'Y-m-d'`)
+ *
+ * Usage: `'date'`, `'date|format:Y-m-d H:i:s'`, `'date|format:m/d/Y'`
+ */
 class DateRule extends BaseRule
 {
     public function validate($value, array $ruleArgs = [], array $data = []): bool

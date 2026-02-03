@@ -4,6 +4,15 @@ declare(strict_types=1);
 
 namespace Handlr\Validation\Rules;
 
+/**
+ * Validates that a value is a string with optional length constraints.
+ *
+ * Rule args:
+ * - `min` - Minimum string length
+ * - `max` - Maximum string length
+ *
+ * Usage: `'string'`, `'string|min:3'`, `'string|max:100'`, `'string|min:3,max:100'`
+ */
 class StringRule extends BaseRule
 {
     public function validate($value, array $ruleArgs = [], array $data = []): bool

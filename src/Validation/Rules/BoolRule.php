@@ -4,6 +4,14 @@ declare(strict_types=1);
 
 namespace Handlr\Validation\Rules;
 
+/**
+ * Validates that a value is boolean or boolean-like.
+ *
+ * Accepts: `true`, `false`, `'true'`, `'false'`, `'yes'`, `'no'`, `'y'`, `'n'`,
+ * `'1'`, `'0'`, `'on'`, `'off'`, `1`, `0`
+ *
+ * Usage: `'bool'`
+ */
 class BoolRule extends BaseRule
 {
     public function validate($value, array $ruleArgs = [], array $data = []): bool

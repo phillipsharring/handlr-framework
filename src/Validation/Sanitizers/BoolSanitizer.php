@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Handlr\Validation\Sanitizers;
 
+/**
+ * Sanitizes values to booleans.
+ *
+ * Handles 'y'/'n' and standard boolean strings ('true', 'false', '1', '0', 'on', 'off').
+ */
 class BoolSanitizer implements Sanitizer
 {
     public function sanitize($value, array $ruleArgs = []): bool

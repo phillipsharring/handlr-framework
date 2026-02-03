@@ -4,6 +4,13 @@ declare(strict_types=1);
 
 namespace Handlr\Validation\Rules;
 
+/**
+ * Validates that a value is a valid RFC4122 UUID (any version 1-8).
+ *
+ * Expects canonical hyphenated format: `xxxxxxxx-xxxx-Mxxx-Nxxx-xxxxxxxxxxxx`
+ *
+ * Usage: `'uuid'`
+ */
 class UuidRule extends BaseRule
 {
     // Canonical hyphenated UUID, any RFC4122 version (1-8) + correct variant.

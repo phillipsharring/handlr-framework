@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Handlr\Validation\Sanitizers;
 
+/**
+ * Sanitizes values to floats.
+ *
+ * Strips non-numeric characters while preserving decimal points.
+ */
 class FloatSanitizer implements Sanitizer
 {
     public function sanitize($value, array $ruleArgs = []): float

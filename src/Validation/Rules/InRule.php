@@ -4,6 +4,13 @@ declare(strict_types=1);
 
 namespace Handlr\Validation\Rules;
 
+/**
+ * Validates that a value is one of the allowed values.
+ *
+ * Pass allowed values as positional args (comma-separated).
+ *
+ * Usage: `'in|active,pending,done'`, `'in|small,medium,large'`
+ */
 class InRule extends BaseRule
 {
     public function validate($value, array $ruleArgs = [], array $data = []): bool

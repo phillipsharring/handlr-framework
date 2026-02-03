@@ -4,6 +4,15 @@ declare(strict_types=1);
 
 namespace Handlr\Validation\Rules;
 
+/**
+ * Validates that a value is numeric (float) with optional value bounds.
+ *
+ * Rule args:
+ * - `min` - Minimum allowed value
+ * - `max` - Maximum allowed value
+ *
+ * Usage: `'float'`, `'float|min:0.0'`, `'float|max:99.99'`, `'float|min:0,max:100'`
+ */
 class FloatRule extends BaseRule
 {
     public function validate($value, array $ruleArgs = [], array $data = []): bool

@@ -1,7 +1,21 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Handlr\Validation\Sanitizers;
 
+/**
+ * Static utility for escaping output in different contexts.
+ *
+ * Unlike other Sanitizers, this is not used during validation—call directly when rendering output.
+ *
+ * ```php
+ * OutputSanitizer::html($userInput);  // For HTML context
+ * OutputSanitizer::url($param);       // For URL parameters
+ * OutputSanitizer::js($string);       // For JavaScript strings
+ * OutputSanitizer::pdf($text);        // For PDF output (strips non-ASCII)
+ * ```
+ */
 class OutputSanitizer
 {
     private const UNICODE_QUOTE_MAPPINGS = [
