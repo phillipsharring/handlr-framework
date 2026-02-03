@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace {{namespace}};
 
 use Handlr\Handlers\Handler;
@@ -8,9 +10,13 @@ use Handlr\Handlers\HandlerResult;
 
 class {{className}}Handler implements Handler
 {
+    public function __construct(
+        private HandlerResult $result
+    ) {}
+
     public function handle(array|HandlerInput $input): ?HandlerResult
     {
         // TODO: Implement logic
-        return HandlerResult::ok(['message' => '{{className}} executed']);
+        return $this->result->ok(['message' => '{{className}} executed']);
     }
 }

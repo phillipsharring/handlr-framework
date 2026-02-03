@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace {{namespace}};
 
 use Handlr\Pipes\Pipe;
@@ -8,12 +10,31 @@ use Handlr\Response;
 
 class {{className}}Pipe implements Pipe
 {
-    public function handle(Request $request): Response
+    public function handle(
+        Request $request,
+        Response $response,
+        array $args,
+        callable $next
+    ): Response
     {
-        $input = $request->asInput({{className}}Input::class);
-        $handler = new {{className}}Handler();
-        $result = $handler->handle($input);
+        [$input, $errors] = $this->factory->makeValidatedInput(
+            $request,
+            WidgetInput::class,
+            'validateWidgetCreate'
+        );
+        if ($errors) {
+            return $response->withStatus(Response::HTTP_UNPROCESSABLE_ENTITY)
+                ->withJson($this->presenter->validationError('Could not do the thing.', $errors));
+        }
 
-        return $result?->toResponse() ?? Response::json(['status' => 'no result']);
+        $result = $this->handler->handle($input);
+        if (!$result->success) {
+            $message = $result->errors[0] ?? 'Could not do the thing.';
+            return $response->withStatus(Response::HTTP_UNPROCESSABLE_ENTITY)
+                ->withJson($this->presenter->invariantError($message));
+        }
+
+        return $response->withStatus(Response::HTTP_OK)
+            ->withJson($this->presenter->success('Thing was done successfully.'));
     }
 }

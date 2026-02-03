@@ -1,13 +1,17 @@
 <?php
 
+declare(strict_types=1);
+
 namespace {{namespace}};
 
 use Handlr\Handlers\HandlerInput;
+use Handlr\Validation\Validator;
 
 class {{className}}Input implements HandlerInput
 {
     public function __construct(
-        array $body
+        array $body = [],
+        ?Validator $validator = null
     ) {
         // TODO: Extract and sanitize values from $body
     }
