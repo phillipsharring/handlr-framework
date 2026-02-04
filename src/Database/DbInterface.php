@@ -17,4 +17,12 @@ interface DbInterface
     public function uuidToBin(string $uuid): string;
 
     public function binToUuid(string $bin): string;
+
+    public function beginTransaction(): bool;
+
+    public function commit(): bool;
+
+    public function rollBack(): bool;
+
+    public function inTransaction(): bool;
 }

@@ -120,4 +120,24 @@ class Db implements DbInterface
         // Accept raw 16-byte binary string from BINARY(16) columns.
         return Uuid::fromBytes($bin)->toString();
     }
+
+    public function beginTransaction(): bool
+    {
+        return $this->connection->beginTransaction();
+    }
+
+    public function commit(): bool
+    {
+        return $this->connection->commit();
+    }
+
+    public function rollBack(): bool
+    {
+        return $this->connection->rollBack();
+    }
+
+    public function inTransaction(): bool
+    {
+        return $this->connection->inTransaction();
+    }
 }
