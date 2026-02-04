@@ -104,7 +104,7 @@ class HandlerResult
      * @param mixed $data Payload data
      * @param array $meta Optional metadata
      */
-    public function ok(mixed $data = null, array $meta = []): static
+    public function ok(mixed $data = null, array $meta = []): HandlerResult
     {
         return new self(true, $data, [], $meta);
     }
@@ -121,7 +121,7 @@ class HandlerResult
      * @param array $errors Error messages (may be keyed by field name)
      * @param array $meta   Optional metadata (error codes, debug info, etc.)
      */
-    public function fail(array $errors, array $meta = []): static
+    public function fail(array $errors, array $meta = []): HandlerResult
     {
         return new self(false, null, $errors, $meta);
     }
