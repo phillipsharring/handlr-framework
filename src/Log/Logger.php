@@ -211,7 +211,13 @@ class Logger implements LoggerInterface
      */
     public function log($level, string|Stringable $message, array $context = []): void
     {
-        $message = $this->interpolate((string) $message, $context);
+        [$message, $unusedContext] = $this->interpolate((string) $message, $context);
+
+        // Append unused context as JSON
+        if (!empty($unusedContext)) {
+            $message .= ' ' . json_encode($unusedContext, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        }
+
         $logMessage = sprintf('[%s] %s: %s', date('Y-m-d H:i:s'), strtoupper($level), $message);
 
         if ($this->logFile) {
@@ -231,22 +237,33 @@ class Logger implements LoggerInterface
      * @param string $message Message with {placeholder} tokens
      * @param array  $context Values to substitute
      *
-     * @return string Interpolated message
+     * @return array{0: string, 1: array} Interpolated message and unused context
      */
-    private function interpolate(string $message, array $context): string
+    private function interpolate(string $message, array $context): array
     {
         $replace = [];
+        $usedKeys = [];
 
         foreach ($context as $key => $value) {
-            if (is_string($value) || (is_object($value) && method_exists($value, '__toString'))) {
-                $replace['{' . $key . '}'] = (string) $value;
-            } elseif (is_scalar($value) || is_null($value)) {
-                $replace['{' . $key . '}'] = var_export($value, true);
-            } else {
-                $replace['{' . $key . '}'] = json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            $placeholder = '{' . $key . '}';
+
+            // Only process if placeholder exists in message
+            if (str_contains($message, $placeholder)) {
+                $usedKeys[] = $key;
+
+                if (is_string($value) || (is_object($value) && method_exists($value, '__toString'))) {
+                    $replace[$placeholder] = (string) $value;
+                } elseif (is_scalar($value) || is_null($value)) {
+                    $replace[$placeholder] = var_export($value, true);
+                } else {
+                    $replace[$placeholder] = json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                }
             }
         }
 
-        return strtr($message, $replace);
+        $interpolatedMessage = strtr($message, $replace);
+        $unusedContext = array_diff_key($context, array_flip($usedKeys));
+
+        return [$interpolatedMessage, $unusedContext];
     }
 }
