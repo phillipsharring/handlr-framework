@@ -392,13 +392,15 @@ abstract class Record implements JsonSerializable, ArrayAccess
     /**
      * Convert the record to an array for database persistence.
      *
+     * Works directly from $data, bypassing toArray() so subclasses can
+     * customize toArray() for API responses without affecting persistence.
      * Excludes computed columns that should not be saved to the database.
      *
      * @return array<string, mixed>
      */
     public function toPersistableArray(): array
     {
-        $data = $this->toArray();
+        $data = [$this->primaryKey() => $this->id] + $this->data;
 
         foreach ($this->computedColumns() as $col) {
             unset($data[$col]);
