@@ -58,7 +58,7 @@ class MigrateCommand extends Command
         $this
             ->setName('migrate')
             ->setDescription('Run or rollback database migrations.')
-            ->addArgument('action', InputArgument::REQUIRED, 'Action to perform: up, down, rollback, help')
+            ->addArgument('action', InputArgument::REQUIRED, 'Action to perform: up, down, rollback, fresh, help')
             ->addArgument('batches', InputArgument::OPTIONAL, 'Number of batches or "step" for step-wise migration');
     }
 
@@ -73,7 +73,7 @@ class MigrateCommand extends Command
         $batches = $stepWise ? $batches : (int) $batches;
 
         if (
-            !in_array($action, ['up', 'down', 'rollback', 'help'], true)
+            !in_array($action, ['up', 'down', 'rollback', 'fresh', 'help'], true)
             || ($action === 'down' && $batches === 'step')
         ) {
             return $this->displayHelp($output, true);
@@ -118,6 +118,7 @@ class MigrateCommand extends Command
             'up'       => $runner->migrate($stepWise),
             'down',
             'rollback' => $runner->rollback($batches),
+            'fresh'    => $runner->fresh(),
         };
 
         return Command::SUCCESS;
@@ -138,7 +139,7 @@ Usage:
 php scripts/migrate.php [action] [batches]
 
 Arguments:
-  action   Action to perform: up, down, rollback, help
+  action   Action to perform: up, down, rollback, fresh, help
   batches  Integer >= 1 (default: 1), or "step" for step-wise migration
 
 Examples:
@@ -146,6 +147,7 @@ Examples:
   php scripts/migrate.php up step
   php scripts/migrate.php down
   php scripts/migrate.php down 2
+  php scripts/migrate.php fresh
 
 HELP);
         return Command::INVALID;

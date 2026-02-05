@@ -123,9 +123,22 @@ class SeedCommand extends Command
             }
 
             $fullPath = $seedsPath . '/' . $specificFile;
+
+            // If the exact file doesn't exist, look for a numerically-prefixed match
+            // e.g. "users.php" finds "001_users.php"
             if (!file_exists($fullPath)) {
-                $output->writeln("<error>Seeder file not found: {$fullPath}</error>");
-                return Command::FAILURE;
+                $pattern = $seedsPath . '/*_' . $specificFile;
+                $matches = glob($pattern);
+                if ($matches !== false && count($matches) === 1) {
+                    $fullPath = $matches[0];
+                    $specificFile = basename($fullPath);
+                } elseif ($matches !== false && count($matches) > 1) {
+                    $output->writeln("<error>Ambiguous seeder name \"{$specificFile}\" — multiple matches found.</error>");
+                    return Command::FAILURE;
+                } else {
+                    $output->writeln("<error>Seeder file not found: {$fullPath}</error>");
+                    return Command::FAILURE;
+                }
             }
 
             $seedFiles = [$fullPath];

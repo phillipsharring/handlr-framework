@@ -139,6 +139,30 @@ class MigrationRunner
     }
 
     /**
+     * Drop all tables and re-run every migration from scratch.
+     */
+    public function fresh(): void
+    {
+        $this->log('Dropping all tables...');
+
+        $tables = $this->db->execute('SHOW TABLES')
+            ->fetchAll(PDO::FETCH_COLUMN);
+
+        if (!empty($tables)) {
+            $this->db->execute('SET FOREIGN_KEY_CHECKS = 0');
+            foreach ($tables as $table) {
+                $this->db->execute("DROP TABLE IF EXISTS `{$table}`");
+                $this->log("  Dropped: {$table}");
+            }
+            $this->db->execute('SET FOREIGN_KEY_CHECKS = 1');
+        }
+
+        $this->ensureMigrationsTableExists();
+        $this->log('Running all migrations...');
+        $this->migrate();
+    }
+
+    /**
      * Rollback migrations by batch count.
      *
      * @param int $steps Number of batches to rollback (default: 1)
