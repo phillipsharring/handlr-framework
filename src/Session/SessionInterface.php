@@ -136,6 +136,22 @@ interface SessionInterface
     public function has(string $key): bool;
 
     /**
+     * Regenerate the session ID.
+     *
+     * Creates a new session ID and optionally deletes the old session data.
+     * Call this on login (to prevent session fixation) and before logout.
+     *
+     * ```php
+     * // On login — prevent session fixation
+     * $session->regenerate();
+     * $session->set('user_id', $user->id);
+     * ```
+     *
+     * @param bool $deleteOld Whether to delete the old session data (default: true)
+     */
+    public function regenerate(bool $deleteOld = true): void;
+
+    /**
      * Destroy the session completely.
      *
      * Removes all session data and invalidates the session ID.

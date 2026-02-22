@@ -175,6 +175,22 @@ class Session implements SessionInterface
     }
 
     /**
+     * Regenerate the session ID.
+     *
+     * Creates a new session ID and optionally deletes the old session data
+     * from the storage backend. Preserves all current session data under
+     * the new ID.
+     *
+     * @param bool $deleteOld Whether to delete the old session data (default: true)
+     */
+    public function regenerate(bool $deleteOld = true): void
+    {
+        if ($this->started && session_status() === PHP_SESSION_ACTIVE) {
+            session_regenerate_id($deleteOld);
+        }
+    }
+
+    /**
      * Destroy the session completely.
      *
      * Removes all data and invalidates the session.
