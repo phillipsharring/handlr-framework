@@ -48,6 +48,9 @@ class Response
 {
     /** @var int 400 - Bad request (malformed syntax, invalid JSON) */
     public const int HTTP_BAD_REQUEST = 400;
+    
+    /** @var int 401 - Unauthorized */
+    public const int HTTP_UNAUTHORIZED = 401;
 
     /** @var int 404 - Resource not found */
     public const int HTTP_NOT_FOUND = 404;
