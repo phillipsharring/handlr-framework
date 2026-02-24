@@ -772,6 +772,8 @@ abstract class Table
     /**
      * Supports:
      * - Primitive shorthand: ['name' => 'Phil'] => `name` = ?
+     * - IS NULL: ['name' => null] => `name` IS NULL
+     * - IS NOT NULL: ['name' => ['NOT NULL']] or ['name' => ['operator' => 'NOT NULL']]
      * - Operator form (indexed): ['name' => ['<>', 'Phil']] or ['name' => ['Phil', '<>']]
      * - Operator form (assoc): ['name' => ['operator' => '<>', 'value' => 'Phil']] (key order doesn't matter)
      * - BETWEEN: ['date' => ['BETWEEN', '2025-01-01', '2025-12-31']] or ['operator'=>'between','value'=>['2025-01-01','2025-12-31']]
@@ -801,7 +803,12 @@ abstract class Table
             $value = $condition['value'] ?? null;
         } else {
             // Indexed array form
-            if (count($condition) < 2) {
+
+            // Unary operators (no value needed): ['NOT NULL']
+            if (count($condition) === 1 && is_string($condition[0])
+                && strtoupper(trim($condition[0])) === 'NOT NULL') {
+                $operator = $condition[0];
+            } elseif (count($condition) < 2) {
                 throw new DatabaseException("Invalid condition for {$column}: expected [operator, value] or [value, operator].");
             }
 
@@ -836,6 +843,10 @@ abstract class Table
         $op = strtoupper(trim($operator));
         if (!$this->isAllowedOperator($op)) {
             throw new DatabaseException("Disallowed operator for {$column}: {$operator}");
+        }
+
+        if ($op === 'NOT NULL') {
+            return ["`{$column}` IS NOT NULL", []];
         }
 
         if ($op === 'BETWEEN') {
@@ -897,6 +908,7 @@ abstract class Table
             'BETWEEN',
             'IN',
             'NOT IN',
+            'NOT NULL',
         ];
     }
 
