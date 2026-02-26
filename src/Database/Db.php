@@ -95,6 +95,9 @@ class Db implements DbInterface
     public function execute(string $sql, array $params = []): false|PDOStatement
     {
         $stmt = $this->connect()->prepare($sql);
+        // PDO execute() binds all array values as PARAM_STR.
+        // PHP (string)false === "" which MySQL rejects for integer columns.
+        $params = array_map(static fn($v) => is_bool($v) ? (int)$v : $v, $params);
         $stmt->execute($params);
         $this->lastStatement = $stmt;
         return $stmt;
