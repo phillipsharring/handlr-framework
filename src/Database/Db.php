@@ -12,12 +12,17 @@ use Ramsey\Uuid\Uuid;
 
 class Db implements DbInterface
 {
-    private PDO $connection;
+    private ?PDO $connection = null;
     private ?PDOStatement $lastStatement = null;
     private string $dsn;
+    private string $user;
+    private string $password;
+    private array $options;
 
     /**
-     * @throws DatabaseException
+     * Validates DB config eagerly but defers the PDO connection to first use.
+     *
+     * @throws DatabaseException If DSN is missing or invalid
      */
     public function __construct(private readonly Config $config)
     {
@@ -34,6 +39,9 @@ class Db implements DbInterface
         }
 
         $this->dsn = $dsn;
+        $this->user = $user;
+        $this->password = $password;
+        $this->options = $options;
 
         // For MySQL, PDO requires `dbname=` to select a default database.
         // If the DSN omits it, queries like "SHOW TABLES" will fail with "No database selected".
@@ -44,18 +52,28 @@ class Db implements DbInterface
                     . "Received: {$dsn}"
             );
         }
+    }
 
-        try {
-            $this->connection = new PDO($dsn, $user, $password, $options);
-        } catch (PDOException $e) {
-            throw new DatabaseException(
-                'Failed to connect to database. '
-                    . "DSN: {$dsn}. "
-                    . "PDO error: {$e->getMessage()}",
-                (int)$e->getCode(),
-                $e
-            );
+    /**
+     * @throws DatabaseException
+     */
+    private function connect(): PDO
+    {
+        if ($this->connection === null) {
+            try {
+                $this->connection = new PDO($this->dsn, $this->user, $this->password, $this->options);
+            } catch (PDOException $e) {
+                throw new DatabaseException(
+                    'Failed to connect to database. '
+                        . "DSN: {$this->dsn}. "
+                        . "PDO error: {$e->getMessage()}",
+                    (int)$e->getCode(),
+                    $e
+                );
+            }
         }
+
+        return $this->connection;
     }
 
     private function isMysqlDsn(string $dsn): bool
@@ -76,7 +94,7 @@ class Db implements DbInterface
 
     public function execute(string $sql, array $params = []): false|PDOStatement
     {
-        $stmt = $this->connection->prepare($sql);
+        $stmt = $this->connect()->prepare($sql);
         $stmt->execute($params);
         $this->lastStatement = $stmt;
         return $stmt;
@@ -84,7 +102,7 @@ class Db implements DbInterface
 
     public function insertId(): int
     {
-        return (int)$this->connection->lastInsertId();
+        return (int)$this->connect()->lastInsertId();
     }
 
     /**
@@ -123,21 +141,21 @@ class Db implements DbInterface
 
     public function beginTransaction(): bool
     {
-        return $this->connection->beginTransaction();
+        return $this->connect()->beginTransaction();
     }
 
     public function commit(): bool
     {
-        return $this->connection->commit();
+        return $this->connect()->commit();
     }
 
     public function rollBack(): bool
     {
-        return $this->connection->rollBack();
+        return $this->connect()->rollBack();
     }
 
     public function inTransaction(): bool
     {
-        return $this->connection->inTransaction();
+        return $this->connection !== null && $this->connection->inTransaction();
     }
 }
