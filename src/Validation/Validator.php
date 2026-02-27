@@ -153,6 +153,7 @@ class Validator
     private const SANITIZER_SUBSTITUTIONS = [
         'uuid'  => 'string',
         'uuid7' => 'string',
+        'json'  => 'string',
     ];
 
     /** Types that support default value casting */
