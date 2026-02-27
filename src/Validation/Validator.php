@@ -147,13 +147,13 @@ class Validator
         'date',
         'array',
         'in',
+        'json',
     ];
 
     /** Map rule names to sanitizer names when they differ */
     private const SANITIZER_SUBSTITUTIONS = [
         'uuid'  => 'string',
         'uuid7' => 'string',
-        'json'  => 'string',
     ];
 
     /** Types that support default value casting */
