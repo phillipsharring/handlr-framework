@@ -46,26 +46,35 @@ use JsonException;
  */
 class Response
 {
-    /** @var int 400 - Bad request (malformed syntax, invalid JSON) */
-    public const int HTTP_BAD_REQUEST = 400;
-    
-    /** @var int 401 - Unauthorized */
-    public const int HTTP_UNAUTHORIZED = 401;
-
-    /** @var int 404 - Resource not found */
-    public const int HTTP_NOT_FOUND = 404;
-
     /** @var int 200 - Success (default) */
     public const int HTTP_OK = 200;
 
-    /** @var int 500 - Internal server error */
-    public const int HTTP_SERVER_ERROR = 500;
+    /** @var int 201 - Created */
+    public const int HTTP_CREATED = 201;
+
+    /** @var int 204 - No content */
+    public const int HTTP_ACCEPTED = 204;
 
     /** @var int 302 - Temporary redirect */
     public const int HTTP_TEMPORARY_REDIRECT = 302;
 
+    /** @var int 400 - Bad request (malformed syntax, invalid JSON) */
+    public const int HTTP_BAD_REQUEST = 400;
+
+    /** @var int 401 - Unauthorized */
+    public const int HTTP_UNAUTHORIZED = 401;
+
+    /** @var int 401 - Unauthorized */
+    public const int HTTP_FORBIDDEN = 403;
+
+    /** @var int 404 - Resource not found */
+    public const int HTTP_NOT_FOUND = 404;
+
     /** @var int 422 - Validation failed (use for form/input validation errors) */
     public const int HTTP_UNPROCESSABLE_ENTITY = 422;
+
+    /** @var int 500 - Internal server error */
+    public const int HTTP_SERVER_ERROR = 500;
 
     /** @var int HTTP status code */
     private int $statusCode = self::HTTP_OK;

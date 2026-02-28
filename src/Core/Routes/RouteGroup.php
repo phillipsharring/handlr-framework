@@ -96,6 +96,28 @@ final class RouteGroup
     }
 
     /**
+     * Create a pipe-only group (no prefix change).
+     *
+     * Useful for layering permission or other middleware on a subset of routes
+     * without changing their URL paths.
+     *
+     * @param array<class-string|object> $pipes Additional pipes to apply
+     * @return self New nested RouteGroup with same prefix
+     *
+     * @example
+     *     $router->group('/api', [AuthPipe::class])
+     *         ->through([new RequirePermissionPipe('admin')])
+     *             ->get('/users', [ListUsersHandler::class])   // GET /api/users (with admin check)
+     *         ->end()
+     *         ->get('/health', [HealthHandler::class])         // GET /api/health (no admin check)
+     *     ->end();
+     */
+    public function through(array $pipes): self
+    {
+        return $this->group('', $pipes);
+    }
+
+    /**
      * End the current group and return to the parent group.
      *
      * ALWAYS call end() after finishing routes in a nested group,
