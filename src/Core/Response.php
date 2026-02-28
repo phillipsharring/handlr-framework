@@ -52,8 +52,11 @@ class Response
     /** @var int 201 - Created */
     public const int HTTP_CREATED = 201;
 
+    /** @var int 202 - Accepted */
+    public const int HTTP_ACCEPTED = 202;
+
     /** @var int 204 - No content */
-    public const int HTTP_ACCEPTED = 204;
+    public const int HTTP_NO_CONTENT = 204;
 
     /** @var int 302 - Temporary redirect */
     public const int HTTP_TEMPORARY_REDIRECT = 302;
