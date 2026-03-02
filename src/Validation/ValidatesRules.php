@@ -72,6 +72,16 @@ trait ValidatesRules
     abstract protected function getBody(): array;
 
     /**
+     * Check whether a field was present in the raw request body.
+     *
+     * Useful for partial updates — handlers can skip fields that weren't sent.
+     */
+    public function has(string $field): bool
+    {
+        return array_key_exists($field, $this->getBody());
+    }
+
+    /**
      * Run validation and return errors.
      *
      * @param array $rules Validation rules keyed by field name
