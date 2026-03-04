@@ -46,6 +46,16 @@ class Request
         private array $headers
     ) {
         $this->body = trim($this->body);
+        $this->normalizeHeaders();
+    }
+
+    private function normalizeHeaders(): void
+    {
+        $normalized = [];
+        foreach ($this->headers as $name => $value) {
+            $normalized[strtolower($name)] = $value;
+        }
+        $this->headers = $normalized;
     }
 
     /**
@@ -158,7 +168,7 @@ class Request
     /**
      * Get a request header value.
      *
-     * Header names are case-sensitive as received from getallheaders().
+     * Header lookup is case-insensitive (all keys normalized to lowercase on construction).
      *
      * @param string $name Header name (e.g., 'Authorization', 'Content-Type')
      * @return string|null Header value or null if not present
@@ -169,7 +179,7 @@ class Request
      */
     public function getHeader(string $name): ?string
     {
-        return $this->headers[$name] ?? null;
+        return $this->headers[strtolower($name)] ?? null;
     }
 
     /**
@@ -215,7 +225,7 @@ class Request
     public function isAuthenticated(): bool
     {
         // Add logic for checking authentication
-        return isset($this->headers['Authorization']);
+        return $this->getHeader('Authorization') !== null;
     }
 
     /**
