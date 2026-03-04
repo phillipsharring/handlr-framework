@@ -234,6 +234,9 @@ abstract class Table
      *     10
      * );
      *
+     * // Paginate manually: skip 20, take 10
+     * $users = $usersTable->findWhere([], [], [['id', 'ASC']], 10, 20);
+     *
      * // Complex conditions
      * $users = $usersTable->findWhere(
      *     [],
@@ -252,12 +255,13 @@ abstract class Table
      * @param array    $orderBy    Order by as indexed arrays: `[['column', 'DESC'], ['other', 'ASC']]`
      *                             **NOT associative!** Use `[['created_at', 'DESC']]` not `['created_at' => 'DESC']`
      * @param int|null $limit      Maximum number of rows to return (null = no limit)
+     * @param int      $offset     Number of rows to skip before returning results (requires $limit)
      *
      * @return Record[] Array of matching records (empty array if none found)
      *
      * @throws DatabaseException On invalid column names, operators, or malformed conditions
      */
-    public function findWhere(array $columns = [], array $conditions = [], array $orderBy = [], ?int $limit = null): array
+    public function findWhere(array $columns = [], array $conditions = [], array $orderBy = [], ?int $limit = null, int $offset = 0): array
     {
         $recordInstance = $this->getRecordInstance();
 
@@ -270,7 +274,7 @@ abstract class Table
             $sql .= " ORDER BY {$orderSql}";
         }
         if ($limit !== null && $limit > 0) {
-            $sql .= " LIMIT {$limit} OFFSET 0";
+            $sql .= " LIMIT {$limit} OFFSET {$offset}";
         }
 
         $stmt = $this->db->execute($sql, $params);
