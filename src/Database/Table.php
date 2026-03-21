@@ -982,14 +982,10 @@ abstract class Table
     {
         $pk = method_exists($record, 'primaryKey') ? $record->primaryKey() : 'id';
 
-        // Convert to array for DB, excluding computed columns, and remove created_at
+        // Convert to array for DB, excluding computed columns
         $data = method_exists($record, 'toPersistableArray')
             ? $record->toPersistableArray()
             : $record->toArray();
-
-        if (array_key_exists('created_at', $data)) {
-            unset($data['created_at']);
-        }
 
         // Let existing method convert UUID columns to DB representation
         $data = $this->convertUuidColumnsForDb($record, $data);

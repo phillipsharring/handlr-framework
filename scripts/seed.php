@@ -71,7 +71,8 @@ class SeedCommand extends Command
             ->setName('db:seed')
             ->setDescription('Run database seeders.')
             ->addArgument('file', InputArgument::OPTIONAL, 'Specific seeder file to run (e.g., "series" or "series.php")')
-            ->addOption('fresh', 'f', InputOption::VALUE_NONE, 'Truncate tables before seeding');
+            ->addOption('fresh', 'f', InputOption::VALUE_NONE, 'Truncate tables before seeding')
+            ->addOption('extras', 'e', InputOption::VALUE_NONE, 'Import the latest extras dump after seeding');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -192,6 +193,44 @@ class SeedCommand extends Command
         }
 
         $output->writeln("<info>Seeding complete. {$totalInserted} records inserted.</info>");
+
+        // Import extras dump if requested
+        if ($input->getOption('extras')) {
+            $extrasPath = $appRoot . '/extra';
+
+            if (!is_dir($extrasPath)) {
+                $output->writeln("<comment>No extra/ directory found at: {$extrasPath}</comment>");
+                return Command::SUCCESS;
+            }
+
+            // Find the latest dump file
+            $dumpFiles = glob($extrasPath . '/dump-extra-*.php');
+            if ($dumpFiles === false || count($dumpFiles) === 0) {
+                $output->writeln("<comment>No extras dump files found in: {$extrasPath}</comment>");
+                return Command::SUCCESS;
+            }
+
+            sort($dumpFiles);
+            $latestDump = end($dumpFiles);
+            $output->writeln("<info>Importing extras from: " . basename($latestDump) . "</info>");
+
+            $extrasData = require $latestDump;
+            if (!is_array($extrasData)) {
+                $output->writeln("<error>Extras dump must return an array: {$latestDump}</error>");
+                return Command::FAILURE;
+            }
+
+            $extrasCounts = $seeder->upsert($extrasData);
+            $totalExtras = 0;
+
+            foreach ($extrasCounts as $tableClass => $count) {
+                $shortName = (new ReflectionClass($tableClass))->getShortName();
+                $output->writeln("  <comment>{$shortName}</comment>: {$count} records upserted");
+                $totalExtras += $count;
+            }
+
+            $output->writeln("<info>Extras import complete. {$totalExtras} records upserted.</info>");
+        }
 
         return Command::SUCCESS;
     }

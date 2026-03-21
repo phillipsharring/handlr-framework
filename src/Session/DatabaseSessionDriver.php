@@ -210,6 +210,6 @@ class DatabaseSessionDriver implements SessionHandlerInterface
             return false;
         }
 
-        return (bool)$this->db->affectedRows();
+        return (int)$this->db->affectedRows();
     }
 }

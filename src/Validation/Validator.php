@@ -144,6 +144,7 @@ class Validator
     /** Rules that don't have corresponding sanitizers */
     private const RULES_WITHOUT_SANITIZATION = [
         'required',
+        'confirmed',
         'date',
         'array',
         'in',

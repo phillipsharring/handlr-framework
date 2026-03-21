@@ -223,6 +223,31 @@ class Seeder
     }
 
     /**
+     * Get UUID columns from a record instance, including 'id' if the record uses UUIDs.
+     *
+     * @return string[]
+     */
+    protected function getUuidColumns(Record $record): array
+    {
+        $columns = [];
+
+        // Check if the record uses UUID for its primary key
+        if (method_exists($record, 'usesUuid') && $record->usesUuid()) {
+            $pk = method_exists($record, 'primaryKey') ? $record->primaryKey() : 'id';
+            $columns[] = $pk;
+        }
+
+        // Get explicitly declared UUID columns
+        $reflection = new \ReflectionClass($record);
+        if ($reflection->hasProperty('uuidColumns')) {
+            $property = $reflection->getProperty('uuidColumns');
+            $columns = array_merge($columns, $property->getValue($record));
+        }
+
+        return array_unique($columns);
+    }
+
+    /**
      * Simple singularization for FK column names.
      * Handles common plural patterns.
      */
@@ -261,6 +286,82 @@ class Seeder
         }
 
         return $word;
+    }
+
+    /**
+     * Upsert seed data — inserts new rows, updates existing ones.
+     *
+     * Uses INSERT ... ON DUPLICATE KEY UPDATE for each record.
+     * Works with raw row data from dump files (no Record instantiation).
+     *
+     * @param array<class-string<Table>, array<int, array<string, mixed>>> $data
+     * @return array<string, int> Count of records upserted per table class
+     */
+    public function upsert(array $data): array
+    {
+        $counts = [];
+
+        foreach ($data as $tableClass => $records) {
+            if (!is_string($tableClass) || !class_exists($tableClass)) {
+                throw new InvalidArgumentException("Invalid table class: {$tableClass}");
+            }
+
+            if (!is_subclass_of($tableClass, Table::class)) {
+                throw new InvalidArgumentException("{$tableClass} must extend " . Table::class);
+            }
+
+            /** @var Table $table */
+            $table = new $tableClass($this->db);
+            $tableName = $this->getTableName($table);
+
+            // Detect UUID columns from the record class
+            $recordClass = $this->getRecordClass($table);
+            $recordInstance = new $recordClass([]);
+            $uuidColumns = $this->getUuidColumns($recordInstance);
+
+            $count = 0;
+
+            foreach ($records as $row) {
+                if (!is_array($row)) {
+                    throw new InvalidArgumentException("Record data must be an array");
+                }
+
+                unset($row['_relations']);
+
+                // Convert UUID columns to binary
+                foreach ($uuidColumns as $col) {
+                    if (isset($row[$col]) && is_string($row[$col]) && $row[$col] !== '') {
+                        $row[$col] = $this->db->uuidToBin($row[$col]);
+                    }
+                }
+
+                // Convert booleans to int for MySQL
+                foreach ($row as $key => $value) {
+                    if (is_bool($value)) {
+                        $row[$key] = $value ? 1 : 0;
+                    }
+                }
+
+                $columns = array_keys($row);
+                $placeholders = array_fill(0, count($columns), '?');
+                $updates = array_map(fn($col) => "`{$col}` = VALUES(`{$col}`)", $columns);
+
+                $sql = sprintf(
+                    'INSERT INTO `%s` (%s) VALUES (%s) ON DUPLICATE KEY UPDATE %s',
+                    $tableName,
+                    implode(', ', array_map(fn($c) => "`{$c}`", $columns)),
+                    implode(', ', $placeholders),
+                    implode(', ', $updates)
+                );
+
+                $this->db->execute($sql, array_values($row));
+                $count++;
+            }
+
+            $counts[$tableClass] = $count;
+        }
+
+        return $counts;
     }
 
     /**
