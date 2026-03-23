@@ -52,6 +52,7 @@ require_once __DIR__ . '/../bootstrap.php';
 use Handlr\Config\Loader;
 use Handlr\Core\Container\Container;
 use Handlr\Database\Db;
+use Handlr\Database\DbInterface;
 use Handlr\Database\Migrations\Seeder;
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Command\Command;
@@ -102,7 +103,7 @@ class SeedCommand extends Command
             $config = Loader::load($configPath, $container);
         }
 
-        $db = new Db($config);
+        $db = $container->get(DbInterface::class);
 
         $appRoot = defined('HANDLR_APP_ROOT')
             ? (string)constant('HANDLR_APP_ROOT')

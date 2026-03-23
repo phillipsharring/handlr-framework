@@ -46,6 +46,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Handlr\Config\Loader;
 use Handlr\Core\Container\Container;
 use Handlr\Database\Db;
+use Handlr\Database\DbInterface;
 use Handlr\Database\Migrations\MigrationRunner;
 
 /**
@@ -106,7 +107,7 @@ class MigrateCommand extends Command
             $config = Loader::load($configPath, $container);
         }
 
-        $db = new Db($config);
+        $db = $container->get(DbInterface::class);
 
         $appRoot = defined('HANDLR_APP_ROOT')
             ? (string)constant('HANDLR_APP_ROOT')
