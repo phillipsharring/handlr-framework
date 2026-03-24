@@ -12,6 +12,8 @@ use Handlr\Database\Record;
  * @property string $variant
  * @property string $session_id
  * @property string $event
+ * @property string $event_date
+ * @property int $count
  * @property string|null $created_at
  */
 class AbEventRecord extends Record
@@ -20,6 +22,7 @@ class AbEventRecord extends Record
 
     protected array $casts = [
         'ab_test_id' => 'int',
+        'count' => 'int',
         'created_at' => 'date',
     ];
 }

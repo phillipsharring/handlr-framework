@@ -68,14 +68,12 @@ class AbService
                 continue;
             }
 
-            $record = new AbEventRecord([
-                'ab_test_id' => $testsByName[$testName]->id,
-                'variant' => $variant,
-                'session_id' => $sessionId,
-                'event' => $event,
-            ]);
-
-            $this->eventsTable->insert($record);
+            $this->eventsTable->upsertEvent(
+                $testsByName[$testName]->id,
+                $variant,
+                $sessionId,
+                $event,
+            );
         }
     }
 

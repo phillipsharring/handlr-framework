@@ -17,7 +17,7 @@ class AbResultsQuery extends Query
             SELECT
                 `variant`,
                 `event`,
-                COUNT(*) AS `count`,
+                SUM(`count`) AS `count`,
                 COUNT(DISTINCT `session_id`) AS `unique_sessions`
             FROM `ab_events`
             WHERE `ab_test_id` = ?
@@ -40,7 +40,7 @@ class AbResultsQuery extends Query
                 `t`.`variants`,
                 `t`.`status`,
                 `t`.`created_at`,
-                COUNT(`e`.`id`) AS `total_events`,
+                COALESCE(SUM(`e`.`count`), 0) AS `total_events`,
                 COUNT(DISTINCT `e`.`session_id`) AS `unique_visitors`
             FROM `ab_tests` AS `t`
             LEFT JOIN `ab_events` AS `e`
