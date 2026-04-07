@@ -118,6 +118,34 @@ final class RouteGroup
     }
 
     /**
+     * Declare this group as a named junction — a labeled extension point that
+     * service providers can fill via `Router::intoJunction(name)`.
+     *
+     * Junctions let the host (`app/routes.php`) define the cross-cutting pipe
+     * stack once and let modules slot routes into it without redeclaring CORS
+     * / session / CSRF / auth pipes themselves. Anything a provider attaches
+     * to the junction inherits the group's full prefix and pipe stack.
+     *
+     * Throws if the same junction name is declared twice.
+     *
+     * @example
+     *     $router->group('/api', [Cors::class, VerifyOrigin::class])
+     *         ->through([StartSession::class, RequireAuth::class])
+     *             ->junction('api.authed')
+     *         ->end()
+     *     ->end();
+     *
+     *     // Then in a provider:
+     *     $router->intoJunction('api.authed')
+     *         ->get('/things', [ListThings::class]);
+     */
+    public function junction(string $name): self
+    {
+        $this->router->registerJunction($name, $this);
+        return $this;
+    }
+
+    /**
      * End the current group and return to the parent group.
      *
      * ALWAYS call end() after finishing routes in a nested group,

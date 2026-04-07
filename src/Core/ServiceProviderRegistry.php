@@ -155,11 +155,20 @@ final class ServiceProviderRegistry
 
     /**
      * Call `routes()` on every provider with the given Router.
+     *
+     * Each provider's class name is pushed onto the Router's origin stack
+     * before its `routes()` runs and popped after, so any route the provider
+     * registers is attributed to it for conflict reporting.
      */
     public function applyRoutes(Router $router): void
     {
         foreach ($this->providers as $provider) {
-            $provider->routes($router);
+            $router->pushOrigin($provider::class);
+            try {
+                $provider->routes($router);
+            } finally {
+                $router->popOrigin();
+            }
         }
     }
 

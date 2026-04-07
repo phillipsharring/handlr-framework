@@ -68,12 +68,15 @@ final class Kernel
         // resolve it from the container if they need to.
         $this->container->singleton(Router::class, $this->router);
 
-        // Boot service providers and let them register their routes BEFORE the
-        // app's route file runs. App routes come last so they can override or
-        // sit alongside provider-registered routes without surprises.
+        // Order matters here:
+        //   1. boot() lets providers do general runtime wiring.
+        //   2. App routes load next so they can declare junctions that
+        //      providers will fill in step 3.
+        //   3. Provider routes() run last and may attach to any junction the
+        //      app declared in step 2.
         $this->bootProviders();
-
         $this->loadRoutes();
+        $this->applyProviderRoutes();
     }
 
     /**
@@ -190,15 +193,16 @@ final class Kernel
     }
 
     /**
-     * Boot any service providers the app has registered.
+     * Run the providers' boot() phase.
      *
      * The app's `handlr_app()` is responsible for building the
      * `ServiceProviderRegistry` and calling `registerAll()` /
      * `applyEvents()` / `applyConfigDefaults()`. The Kernel handles the
-     * runtime side: `bootAll()` and `applyRoutes()`.
+     * runtime side: `bootAll()` first, then `applyRoutes()` AFTER the app's
+     * own routes file has loaded so junctions exist for providers to fill.
      *
      * If the app hasn't bound a registry (older apps, or apps with no
-     * providers), this is a no-op.
+     * providers), both phases are no-ops.
      */
     private function bootProviders(): void
     {
@@ -209,6 +213,20 @@ final class Kernel
         /** @var ServiceProviderRegistry $registry */
         $registry = $this->container->get(ServiceProviderRegistry::class);
         $registry->bootAll();
+    }
+
+    /**
+     * Let providers register their routes, AFTER the app's `routes.php` has
+     * declared any junctions they're meant to fill.
+     */
+    private function applyProviderRoutes(): void
+    {
+        if (!$this->container->has(ServiceProviderRegistry::class)) {
+            return;
+        }
+
+        /** @var ServiceProviderRegistry $registry */
+        $registry = $this->container->get(ServiceProviderRegistry::class);
         $registry->applyRoutes($this->router);
     }
 

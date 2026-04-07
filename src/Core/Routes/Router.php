@@ -8,6 +8,7 @@ use Handlr\Core\Container\Container;
 use Handlr\Core\Request;
 use Handlr\Core\Response;
 use Handlr\Pipes\Pipe;
+use RuntimeException;
 
 /**
  * HTTP router for registering routes and dispatching requests.
@@ -58,6 +59,41 @@ class Router
 
     /** @var array<string, array> Routes indexed by HTTP method */
     private array $routes = [];
+
+    /**
+     * Junctions are named extension points in the route tree. The host (typically
+     * `app/routes.php`) declares them with `RouteGroup::junction(name)`; service
+     * providers fill them via `Router::intoJunction(name)`.
+     *
+     * @var array<string, RouteGroup>
+     */
+    private array $junctions = [];
+
+    /**
+     * Where each junction was first declared, for the duplicate-declaration
+     * error message.
+     *
+     * @var array<string, string>
+     */
+    private array $junctionDeclaredBy = [];
+
+    /**
+     * Where each route (method+path) was first registered, for the
+     * duplicate-route error message. Keyed as "METHOD path".
+     *
+     * @var array<string, string>
+     */
+    private array $routeOrigins = [];
+
+    /**
+     * Stack of "origin labels" pushed during route registration. The top of
+     * the stack is attached to any route registered while it's active. Used
+     * by ServiceProviderRegistry to attribute routes to the provider that
+     * registered them; the app's own routes default to 'app'.
+     *
+     * @var array<int, string>
+     */
+    private array $originStack = [];
 
     /**
      * @param Container $container DI container for resolving pipe classes
@@ -157,6 +193,20 @@ class Router
     private function add(string $method, string $path, array $pipes): void
     {
         $path = $this->normalizePath($path);
+
+        $key = $method . ' ' . $path;
+        if (isset($this->routeOrigins[$key])) {
+            $existing = $this->routeOrigins[$key];
+            $incoming = $this->currentOrigin();
+            throw new RuntimeException(sprintf(
+                'Route %s was already registered by %s; cannot redeclare from %s.',
+                $key,
+                $existing,
+                $incoming
+            ));
+        }
+        $this->routeOrigins[$key] = $this->currentOrigin();
+
         $compiled = $this->compilePattern($path);
 
         if (!isset($this->routes[$method])) {
@@ -169,6 +219,116 @@ class Router
             'params' => $compiled['params'],
             'pipes' => $pipes,
         ];
+    }
+
+    /**
+     * Push an origin label onto the registration stack. While this label is
+     * active, any route registered will be attributed to it for conflict
+     * reporting. Always pair with popOrigin().
+     *
+     * Used internally by ServiceProviderRegistry to attribute routes to the
+     * provider that registered them.
+     */
+    public function pushOrigin(string $origin): void
+    {
+        $this->originStack[] = $origin;
+    }
+
+    /**
+     * Pop the top origin label off the registration stack.
+     */
+    public function popOrigin(): void
+    {
+        array_pop($this->originStack);
+    }
+
+    /**
+     * The currently active origin label, or 'app' if none is on the stack.
+     * Routes registered from `app/routes.php` are attributed to 'app'.
+     */
+    private function currentOrigin(): string
+    {
+        return $this->originStack[array_key_last($this->originStack) ?? -1] ?? 'app';
+    }
+
+    /**
+     * Register a RouteGroup as a junction — a named extension point that
+     * service providers can fill via `intoJunction()`.
+     *
+     * Throws if the same junction name has already been declared. The error
+     * message includes the call site of the original declaration.
+     *
+     * Called from `RouteGroup::junction()`; not typically called directly.
+     */
+    public function registerJunction(string $name, RouteGroup $group): void
+    {
+        if (isset($this->junctions[$name])) {
+            throw new RuntimeException(sprintf(
+                "Junction '%s' was already declared at %s; cannot redeclare it at %s.",
+                $name,
+                $this->junctionDeclaredBy[$name],
+                $this->callerLocation()
+            ));
+        }
+        $this->junctions[$name] = $group;
+        $this->junctionDeclaredBy[$name] = $this->callerLocation();
+    }
+
+    /**
+     * Look up a previously-declared junction and return its RouteGroup so a
+     * provider can attach routes to it. Anything attached inherits the
+     * junction's full prefix and pipe stack.
+     *
+     * Throws if the junction has not been declared. The error message lists
+     * available junction names so typos are easy to spot.
+     *
+     * @example In a provider's routes() method:
+     *     $router->intoJunction('api.authed')
+     *         ->get('/things', [ListThings::class])
+     *         ->post('/things', [CreateThing::class]);
+     */
+    public function intoJunction(string $name): RouteGroup
+    {
+        if (!isset($this->junctions[$name])) {
+            $available = array_keys($this->junctions);
+            $list = $available === [] ? '(none)' : implode(', ', $available);
+            throw new RuntimeException(sprintf(
+                "Junction '%s' has not been declared. Available junctions: %s.",
+                $name,
+                $list
+            ));
+        }
+        return $this->junctions[$name];
+    }
+
+    /**
+     * @return array<int, string> Names of all declared junctions, in declaration order.
+     */
+    public function junctionNames(): array
+    {
+        return array_keys($this->junctions);
+    }
+
+    /**
+     * Walk the call stack to find the first frame outside this file and the
+     * routes package. Used to attribute junction declarations to a useful
+     * source location.
+     */
+    private function callerLocation(): string
+    {
+        $frames = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 8);
+        foreach ($frames as $frame) {
+            $file = $frame['file'] ?? null;
+            if ($file === null) {
+                continue;
+            }
+            // Skip frames inside the Routes package itself.
+            if (str_contains($file, DIRECTORY_SEPARATOR . 'Core' . DIRECTORY_SEPARATOR . 'Routes' . DIRECTORY_SEPARATOR)) {
+                continue;
+            }
+            return $file . ':' . ($frame['line'] ?? '?');
+        }
+        return 'unknown';
     }
 
     /**
