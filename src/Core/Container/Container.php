@@ -617,6 +617,24 @@ class Container implements ContainerInterface
     }
 
     /**
+     * Check whether the container has an explicit registration for an alias.
+     *
+     * Returns true if `$alias` has been explicitly bound (via bind/singleton/
+     * factory) or aliased. Does NOT consider auto-wireable classes — this is
+     * specifically for distinguishing "the app registered this" from "the
+     * container could probably build one if asked."
+     */
+    public function has(string $alias): bool
+    {
+        $abstract = $this->aliases[$alias] ?? $alias;
+
+        return isset($this->bindings[$abstract])
+            || isset($this->singletons[$abstract])
+            || isset($this->factories[$abstract])
+            || isset($this->aliases[$alias]);
+    }
+
+    /**
      * Get all registered bindings (for debugging/testing).
      *
      * @return array<string, string> Map of abstract => concrete class names

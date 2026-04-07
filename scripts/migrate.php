@@ -45,6 +45,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Handlr\Config\Loader;
 use Handlr\Core\Container\Container;
+use Handlr\Core\ServiceProviderRegistry;
 use Handlr\Database\Db;
 use Handlr\Database\DbInterface;
 use Handlr\Database\Migrations\MigrationRunner;
@@ -112,8 +113,21 @@ class MigrateCommand extends Command
         $appRoot = defined('HANDLR_APP_ROOT')
             ? (string)constant('HANDLR_APP_ROOT')
             : (string)getcwd();
-        $migrationPath = $appRoot . '/migrations';
-        $runner = new MigrationRunner($db, $migrationPath);
+
+        // Always include the app's own migrations directory, then layer in any
+        // migration paths declared by registered service providers. The runner
+        // sorts merged filenames so timestamp-prefixed migrations interleave
+        // correctly across providers.
+        $migrationPaths = [$appRoot . '/migrations'];
+        if ($container->has(ServiceProviderRegistry::class)) {
+            /** @var ServiceProviderRegistry $registry */
+            $registry = $container->get(ServiceProviderRegistry::class);
+            foreach ($registry->migrationPaths() as $path) {
+                $migrationPaths[] = $path;
+            }
+        }
+
+        $runner = new MigrationRunner($db, $migrationPaths);
 
         match ($action) {
             'up'       => $runner->migrate($stepWise),

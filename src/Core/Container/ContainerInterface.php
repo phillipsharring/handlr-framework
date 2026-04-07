@@ -62,6 +62,16 @@ interface ContainerInterface
     public function get(string $alias): mixed;
 
     /**
+     * Whether the container has an explicit registration for an alias.
+     *
+     * Returns true only when `$alias` has been explicitly bound, registered as
+     * a singleton/factory, or aliased — auto-wireable classes do NOT count.
+     *
+     * @param string $alias The class, interface, or alias to check.
+     */
+    public function has(string $alias): bool;
+
+    /**
      * Creates an alias for an interface -> concrete binding. Can be aliased
      * before binding is set.
      *

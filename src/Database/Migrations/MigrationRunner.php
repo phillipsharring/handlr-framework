@@ -49,16 +49,21 @@ class MigrationRunner
 {
     private Db $db;
 
-    private string $migrationPath;
+    /** @var array<int, string> Ordered list of directories scanned for migration files. */
+    private array $migrationPaths;
 
     /**
-     * @param Db     $db            Database connection
-     * @param string $migrationPath Path to migrations directory
+     * @param Db                    $db             Database connection
+     * @param string|array<string>  $migrationPaths One path (back-compat) or an array of paths.
+     *                                              When multiple paths are given, files from all
+     *                                              paths are merged and sorted by filename — so
+     *                                              timestamp-prefixed migration names interleave
+     *                                              correctly across providers.
      */
-    public function __construct(Db $db, string $migrationPath)
+    public function __construct(Db $db, string|array $migrationPaths)
     {
         $this->db = $db;
-        $this->migrationPath = $migrationPath;
+        $this->migrationPaths = is_array($migrationPaths) ? array_values($migrationPaths) : [$migrationPaths];
         $this->ensureMigrationsTableExists();
     }
 
@@ -110,9 +115,7 @@ class MigrationRunner
     public function migrate(bool $stepWise = false): void
     {
         $appliedMigrations = array_map(static fn(array $row) => ($row['file']), $this->getAppliedMigrations());
-        $files = scandir($this->migrationPath);
-
-        $filteredFiles = $this->getFilteredFiles($files);
+        $filteredFiles = $this->collectMigrationFiles();
         $newMigrations = array_diff($filteredFiles, $appliedMigrations);
 
         if (empty($newMigrations)) {
@@ -216,6 +219,34 @@ class MigrationRunner
         );
     }
 
+    /**
+     * Collect migration filenames across every configured path, sorted by basename.
+     *
+     * Sorting by basename means timestamp-prefixed migrations from different
+     * providers interleave correctly: a 2025-08 framework migration runs before
+     * a 2025-09 module migration even if the module path is listed first.
+     *
+     * @return array<int, string>
+     */
+    private function collectMigrationFiles(): array
+    {
+        $all = [];
+        foreach ($this->migrationPaths as $path) {
+            if (!is_dir($path)) {
+                continue;
+            }
+            $files = scandir($path);
+            if ($files === false) {
+                continue;
+            }
+            foreach ($this->getFilteredFiles($files) as $file) {
+                $all[$file] = $file;
+            }
+        }
+        ksort($all);
+        return array_values($all);
+    }
+
     private function classNameFromFile(string $file): string
     {
         // "20251227121500_create_users_table.php" -> "CreateUsersTable"
@@ -227,7 +258,20 @@ class MigrationRunner
 
     private function loadMigration(string $file): string
     {
-        require_once rtrim($this->migrationPath, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $file;
+        $found = null;
+        foreach ($this->migrationPaths as $path) {
+            $candidate = rtrim($path, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $file;
+            if (is_file($candidate)) {
+                $found = $candidate;
+                break;
+            }
+        }
+
+        if ($found === null) {
+            throw new RuntimeException("Migration file {$file} not found in any configured migration path.");
+        }
+
+        require_once $found;
 
         // Build class name
         $class = $this->classNameFromFile($file);

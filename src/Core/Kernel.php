@@ -64,6 +64,15 @@ final class Kernel
         $this->registerServices();
         $this->registerGlobalPipes();
 
+        // Bind the Router as a singleton so providers (and anything else) can
+        // resolve it from the container if they need to.
+        $this->container->singleton(Router::class, $this->router);
+
+        // Boot service providers and let them register their routes BEFORE the
+        // app's route file runs. App routes come last so they can override or
+        // sit alongside provider-registered routes without surprises.
+        $this->bootProviders();
+
         $this->loadRoutes();
     }
 
@@ -178,6 +187,29 @@ final class Kernel
     private function loadBootstrap(): void
     {
         require_once $this->appRoot . '/bootstrap.php'; // NOSONAR
+    }
+
+    /**
+     * Boot any service providers the app has registered.
+     *
+     * The app's `handlr_app()` is responsible for building the
+     * `ServiceProviderRegistry` and calling `registerAll()` /
+     * `applyEvents()` / `applyConfigDefaults()`. The Kernel handles the
+     * runtime side: `bootAll()` and `applyRoutes()`.
+     *
+     * If the app hasn't bound a registry (older apps, or apps with no
+     * providers), this is a no-op.
+     */
+    private function bootProviders(): void
+    {
+        if (!$this->container->has(ServiceProviderRegistry::class)) {
+            return;
+        }
+
+        /** @var ServiceProviderRegistry $registry */
+        $registry = $this->container->get(ServiceProviderRegistry::class);
+        $registry->bootAll();
+        $registry->applyRoutes($this->router);
     }
 
     /**

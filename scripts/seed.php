@@ -51,6 +51,7 @@ require_once __DIR__ . '/../bootstrap.php';
 
 use Handlr\Config\Loader;
 use Handlr\Core\Container\Container;
+use Handlr\Core\ServiceProviderRegistry;
 use Handlr\Database\Db;
 use Handlr\Database\DbInterface;
 use Handlr\Database\Migrations\Seeder;
@@ -108,12 +109,33 @@ class SeedCommand extends Command
         $appRoot = defined('HANDLR_APP_ROOT')
             ? (string)constant('HANDLR_APP_ROOT')
             : (string)getcwd();
-        $seedsPath = $appRoot . '/seeds';
 
-        if (!is_dir($seedsPath)) {
-            $output->writeln("<comment>No seeds directory found at: {$seedsPath}</comment>");
+        // Build the ordered list of seed directories: the app's own seeds/
+        // first, then any directories declared by registered service providers.
+        $seedPaths = [];
+        $appSeedsPath = $appRoot . '/seeds';
+        if (is_dir($appSeedsPath)) {
+            $seedPaths[] = $appSeedsPath;
+        }
+        if ($container->has(ServiceProviderRegistry::class)) {
+            /** @var ServiceProviderRegistry $registry */
+            $registry = $container->get(ServiceProviderRegistry::class);
+            foreach ($registry->seedPaths() as $path) {
+                if (is_dir($path)) {
+                    $seedPaths[] = $path;
+                }
+            }
+        }
+
+        if ($seedPaths === []) {
+            $output->writeln("<comment>No seeds directories found.</comment>");
             return Command::SUCCESS;
         }
+
+        // Keep $seedsPath as the primary (app) directory for "specific file"
+        // lookups below — provider seeds are always run as part of the bulk
+        // pass, never targeted by name from the CLI.
+        $seedsPath = $seedPaths[0];
 
         // Check if a specific file was requested
         $specificFile = $input->getArgument('file');
@@ -146,12 +168,25 @@ class SeedCommand extends Command
             $seedFiles = [$fullPath];
             $output->writeln("<info>Running specific seeder: {$specificFile}</info>");
         } else {
-            // Find all seed files
-            $seedFiles = glob($seedsPath . '/*.php');
-            if ($seedFiles === false || count($seedFiles) === 0) {
-                $output->writeln("<comment>No seed files found in: {$seedsPath}</comment>");
+            // Find all seed files across every configured seed path. Files are
+            // sorted by basename so numerically-prefixed seeds run in order
+            // even when they live in different directories.
+            $seedFiles = [];
+            foreach ($seedPaths as $dir) {
+                $found = glob($dir . '/*.php');
+                if ($found === false) {
+                    continue;
+                }
+                foreach ($found as $file) {
+                    $seedFiles[basename($file)] = $file;
+                }
+            }
+            if (count($seedFiles) === 0) {
+                $output->writeln("<comment>No seed files found in any seed directory.</comment>");
                 return Command::SUCCESS;
             }
+            ksort($seedFiles);
+            $seedFiles = array_values($seedFiles);
         }
 
         $seeder = new Seeder($db);
