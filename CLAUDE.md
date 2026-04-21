@@ -1,4 +1,4 @@
-# Handlr Backend Framework — Claude Code Notes
+# Handlr Backend Framework  - Claude Code Notes
 
 ## Architecture
 
@@ -6,15 +6,15 @@ PHP API framework with Laravel-style conventions. Installed via Composer as `phi
 
 ## Core Abstractions
 
-- **Pipe** — HTTP layer. Knows `Request`/`Response`. Extracts input, calls Handler, returns Response.
-- **Handler** — Business logic. Receives `HandlerInput|array`, returns `?HandlerResult`. Used for both request handlers and event listeners.
-- **HandlerInput** — Typed input object. Constructor takes `array $body` and optional `Validator`.
-- **HandlerResult** — Return type for handlers. `$result->ok($data)` or `$result->fail(['error message'])`.
-- **Listener** — A Handler registered on an event. Same interface, returns `null`.
-- **EventManager** — `register(eventName, handler)` / `dispatch(eventName, handlerInput)`. Synchronous.
-- **Table** — Active Record-style data access. `insert()`, `update()`, `delete()`, `findById()`, `findFirst()`, `findWhere()`.
-- **Record** — Data object with magic `__get`/`__set` over internal `$data` array.
-- **Query** — Abstract base for read-only query classes: `rows()`, `row()`, `scalar()`, `count()`, `column()`, `uuidToBin()`, `binToUuid()`.
+- **Pipe**  - HTTP layer. Knows `Request`/`Response`. Extracts input, calls Handler, returns Response.
+- **Handler**  - Business logic. Receives `HandlerInput|array`, returns `?HandlerResult`. Used for both request handlers and event listeners.
+- **HandlerInput**  - Typed input object. Constructor takes `array $body` and optional `Validator`.
+- **HandlerResult**  - Return type for handlers. `$result->ok($data)` or `$result->fail(['error message'])`.
+- **Listener**  - A Handler registered on an event. Same interface, returns `null`.
+- **EventManager**  - `register(eventName, handler)` / `dispatch(eventName, handlerInput)`. Synchronous.
+- **Table**  - Active Record-style data access. `insert()`, `update()`, `delete()`, `findById()`, `findFirst()`, `findWhere()`.
+- **Record**  - Data object with magic `__get`/`__set` over internal `$data` array.
+- **Query**  - Abstract base for read-only query classes: `rows()`, `row()`, `scalar()`, `count()`, `column()`, `uuidToBin()`, `binToUuid()`.
 
 ## Record Classes (CRITICAL)
 
@@ -25,7 +25,7 @@ Records use `@property` docblocks for IDE support, NOT real public properties. A
 /** @property string|null $name */
 class ThingRecord extends Record { }
 
-// WRONG — breaks update()
+// WRONG  - breaks update()
 class ThingRecord extends Record {
     public ?string $name = null;  // shadows __get/__set
 }
@@ -41,15 +41,15 @@ protected string $table = 'things';       // wrong
 
 ### Table Method Reference
 
-- `insert(Record $record)` — inserts record, auto-generates UUID for `id`. Requires a Record object, NOT an array.
-- `update(Record $record)` — updates by primary key.
-- `delete(Record $record)` — deletes by `$record->primaryKey()` (defaults to `id`). For composite-PK tables, use raw SQL.
-- `findById($id)` — primary key lookup. Use this for single-record fetches.
-- `findFirst($columns, $conditions)` — returns first match or null.
-- `findWhere($columns, $conditions, $orderBy, $limit)` — `$orderBy` is array of `[column, direction?]` pairs. `$limit` is `?int`.
+- `insert(Record $record)`  - inserts record, auto-generates UUID for `id`. Requires a Record object, NOT an array.
+- `update(Record $record)`  - updates by primary key.
+- `delete(Record $record)`  - deletes by `$record->primaryKey()` (defaults to `id`). For composite-PK tables, use raw SQL.
+- `findById($id)`  - primary key lookup. Use this for single-record fetches.
+- `findFirst($columns, $conditions)`  - returns first match or null.
+- `findWhere($columns, $conditions, $orderBy, $limit)`  - `$orderBy` is array of `[column, direction?]` pairs. `$limit` is `?int`.
 - `findFirst([], ['id' => $x, 'other_uuid' => $y])` with multiple UUID conditions can fail silently. Use `findById($id)` then verify ownership separately.
 - Conditions support `['column' => null]` which generates `column IS NULL`.
-- `['column' => ['NOT NULL']]` generates `column IS NOT NULL`. Do NOT use `['<>', null]` — it generates `column <> ?` with null bound, which is always false in SQL.
+- `['column' => ['NOT NULL']]` generates `column IS NOT NULL`. Do NOT use `['<>', null]`  - it generates `column <> ?` with null bound, which is always false in SQL.
 
 ### Table Limitations
 
@@ -73,7 +73,7 @@ protected string $table = 'things';       // wrong
 
 - Always pass a validation method (3rd arg). Handlers assume input is valid.
 - Server-set values (e.g. `user_id`) go via `additionalData` (4th arg), not manual assignment after the call.
-- `additionalData` takes precedence over `parsedBody` — users can't override server-set values.
+- `additionalData` takes precedence over `parsedBody`  - users can't override server-set values.
 - Add `@see` docblock pointing to the validation method.
 
 ## Routing
@@ -94,17 +94,17 @@ $router->group('/api', [CorsPipe::class, VerifyOriginPipe::class])
 
 ## Presenter
 
-- `withData($array)` — for collections (array of items). Do NOT pass a single associative array.
-- `withSingleData($array)` — for single records (associative array).
-- `fromRecord($record)` — for Record objects.
-- `validationError($message, $errors)` — 422 with field-level errors.
-- `invariantError($message)` — 422 with a single error message.
-- `success($message)` — success response with message.
+- `withData($array)`  - for collections (array of items). Do NOT pass a single associative array.
+- `withSingleData($array)`  - for single records (associative array).
+- `fromRecord($record)`  - for Record objects.
+- `validationError($message, $errors)`  - 422 with field-level errors.
+- `invariantError($message)`  - 422 with a single error message.
+- `success($message)`  - success response with message.
 
 ## Database & Transactions
 
 - `DbInterface` MUST be a singleton. Without it, each resolution creates a separate connection. Transactions spanning event chains will deadlock if listeners use different connections.
-- `Db` uses lazy PDO — constructor validates config, `connect()` creates PDO on first query.
+- `Db` uses lazy PDO  - constructor validates config, `connect()` creates PDO on first query.
 - Atomic conditional UPDATE: `UPDATE table SET col = ? WHERE id = ? AND col IS NULL` + `affectedRows()` check. Eliminates SELECT-then-UPDATE race conditions.
 - `array_unique()` with PDO positional parameters: preserves original keys, creating gaps. PDO requires sequential 0-indexed keys. Always: `array_values(array_unique(...))`.
 
@@ -144,7 +144,7 @@ class Migration_20250826012000_AddSlugToThings extends BaseMigration
 ## Validation
 
 - Rule type names use short forms: `int` not `integer`, `bool` not `boolean`.
-- `json` rule is in `RULES_WITHOUT_SANITIZATION` — request body JSON fields arrive as PHP arrays (already decoded). Input constructors handle `json_encode()` themselves.
+- `json` rule is in `RULES_WITHOUT_SANITIZATION`  - request body JSON fields arrive as PHP arrays (already decoded). Input constructors handle `json_encode()` themselves.
 - Validator rule strings: `'required'`, `'string|trim,min:3,max:30'`, `'int|min:1'`, `'uuid'`, `'bool'`.
 
 ## CSRF/XSRF Protection
@@ -154,7 +154,7 @@ Token-in-header strategy: backend stores token in session, mirrors to `XSRF-TOKE
 - Token rotates after every successful POST/PATCH/DELETE.
 - GET/HEAD/OPTIONS are exempt.
 - 403 = bad token. Response includes fresh token.
-- Auth routes use `EnsureCsrfTokenPipe` (issue only, no verification — `VerifyOriginPipe` covers cross-origin).
+- Auth routes use `EnsureCsrfTokenPipe` (issue only, no verification  - `VerifyOriginPipe` covers cross-origin).
 - All other routes add `VerifyCsrfTokenPipe`.
 
 ## SQL Style
@@ -170,7 +170,7 @@ Token-in-header strategy: backend stores token in session, mirrors to `XSRF-TOKE
 
 - `APP_ENV` controls bootstrap behavior (defaults to `local`).
 - `APP_ENV=simulation` → binds `NullDb` (throws on queries). All others → binds `Db`.
-- `$container->singleton(Foo::class)` (no 2nd arg) eagerly resolves deps — register DB-dependent singletons AFTER `Loader::load()`.
+- `$container->singleton(Foo::class)` (no 2nd arg) eagerly resolves deps  - register DB-dependent singletons AFTER `Loader::load()`.
 
 ## Dependency Injection
 
